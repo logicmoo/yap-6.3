@@ -585,6 +585,10 @@ user:library_directory( Dir ) :-
 
 :- dynamic user:commons_directory/1.
 
+:- multifile user:system_commons/1.
+:- dynamic user:system_commons/1.
+
+system_commons(_Path):-fail.
 
 user:commons_directory( Path ):-
     system_commons( Path ).
