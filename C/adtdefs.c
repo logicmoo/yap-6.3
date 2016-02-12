@@ -330,12 +330,12 @@ Atom Yap_LookupMaybeWideAtomWithLength(
   while (i < len0) {
     // primary support for atoms with null chars
     wchar_t c = atom[i];
-    if (c > 255) {
-      wide = TRUE;
+    if (c >= 255) {
+      wide = true;
       break;
     }
     if (c == '\0') {
-      len0 = i;
+      wide = true;
       break;
     }
     i++;
@@ -343,10 +343,10 @@ Atom Yap_LookupMaybeWideAtomWithLength(
   if (wide) {
     wchar_t *ptr0;
 
-    ptr0 = (wchar_t *)Yap_AllocCodeSpace(sizeof(wchar_t) * (len0 + 1));
+    ptr0 = (wchar_t *)Yap_AllocCodeSpace(sizeof(wchar_t) * (len0 + 2));
     if (!ptr0)
       return NIL;
-    memcpy(ptr0, atom, len0 * sizeof(wchar_t));
+    memcpy(ptr0, atom, (len0+1) * sizeof(wchar_t));
     ptr0[len0] = '\0';
     at = LookupWideAtom(ptr0);
     Yap_FreeCodeSpace((char *)ptr0);
@@ -354,7 +354,7 @@ Atom Yap_LookupMaybeWideAtomWithLength(
   } else {
     unsigned char *ptr0;
 
-    ptr0 = Yap_AllocCodeSpace((len0 + 1));
+    ptr0 = Yap_AllocCodeSpace((len0 + 2));
     if (!ptr0)
       return NIL;
     for (i = 0; i < len0; i++)
