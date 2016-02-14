@@ -605,10 +605,10 @@ user:library_directory( Dir ) :-
 :- multifile user:system_commons/1.
 :- dynamic user:system_commons/1.
 
-system_commons(_Path):-fail.
+user:system_commons(_Path):-fail.
 
 user:commons_directory( Path ):-
-    system_commons( Path ).
+    user:system_commons( Path ).
 
 /**
   @pred user:foreign_directory(? _Directory_:atom) is nondet, dynamic
