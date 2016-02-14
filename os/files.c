@@ -451,15 +451,18 @@ is_absolute_file_name ( USES_REGS1 )
     Yap_Error(INSTANTIATION_ERROR, t, "file_base_name/2");
     return FALSE;    
   }
-  at = AtomOfTerm(t);
-  if (IsWideAtom(at)) {
+  const char *buf = Yap_TextTermToText( t, NULL, 0);
+  if (buf) {
+    return Yap_IsAbsolutePath( buf );
+  } else {
+    at = AtomOfTerm(t);
+    if (IsWideAtom(at)) {
 #if _WIN32
-    return PathIsRelativeW(RepAtom(at)->WStrOfAE);
+      return PathIsRelativeW(RepAtom(at)->WStrOfAE);
 #else
     return RepAtom(at)->WStrOfAE[0] == '/';
 #endif
-  } else {
-    return Yap_IsAbsolutePath( RepAtom(at)->StrOfAE );
+    }
   }
   return false;
 }
@@ -481,8 +484,8 @@ file_base_name ( USES_REGS1 )
       return Yap_unify(ARG2, MkAtomTerm(Yap_LookupWideAtom(c+i)));
   } else {
       const char *c = RepAtom(at)->StrOfAE;
-      char *s;
-#if HAVE_BASENAME
+      const char *s;
+#if HAVE_BASENAME && 0 // DISABLED: Linux basename is not compatible with file_base_name in SWI and GNU
       char c1[YAP_FILENAME_MAX+1];
       strncpy( c1, c, YAP_FILENAME_MAX);
       s = basename( c1 );
@@ -520,7 +523,7 @@ file_directory_name ( USES_REGS1 )
       return Yap_unify(ARG2, MkAtomTerm(Yap_LookupWideAtom(s)));
   } else {
       const char *c = RepAtom(at)->StrOfAE;
-#if HAVE_BASENAME
+#if HAVE_BASENAME && 0 // DISABLED: Linux basename is not compatible with file_base_name in SWI and GNU
       const char *s;
       char c1[YAP_FILENAME_MAX+1];
       strncpy( c1, c, YAP_FILENAME_MAX);
@@ -529,10 +532,8 @@ file_directory_name ( USES_REGS1 )
       char s[YAP_FILENAME_MAX+1];
       Int i = strlen(c);
       while (i && !Yap_dir_separator((int)c[--i]));
-      if (Yap_dir_separator((int)c[i])) {
-	i++;
-      }
       strncpy(s, c, i);
+      s[i] = '\0';
 #endif
       return Yap_unify(ARG2, MkAtomTerm(Yap_LookupAtom(s)));
   }
