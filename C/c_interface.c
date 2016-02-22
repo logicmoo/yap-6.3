@@ -2153,11 +2153,21 @@ X_API Term YAP_Read(FILE *f) {
   return o;
 }
 
+
 X_API Term YAP_ReadFromStream(int sno) {
   Term o;
 
   BACKUP_MACHINE_REGS();
   o = Yap_read_term(sno, TermNil, 1);
+  RECOVER_MACHINE_REGS();
+  return o;
+}
+
+X_API Term YAP_ReadClauseFromStream(int sno) {
+  Term o;
+
+  BACKUP_MACHINE_REGS();
+  o = Yap_read_term(sno, TermNil, -1);
   RECOVER_MACHINE_REGS();
   return o;
 }
@@ -2226,7 +2236,7 @@ X_API char *YAP_CompileClause(Term t) {
   codeaddr = Yap_cclause(t, 0, mod, t);
   if (codeaddr != NULL) {
     t = Deref(ARG1); /* just in case there was an heap overflow */
-    if (!Yap_addclause(t, codeaddr, TRUE, mod, &tn)) {
+    if (!Yap_addclause(t, codeaddr, TermAssertz, mod, &tn)) {
       YAPLeaveCriticalSection();
       return LOCAL_ErrorMessage;
     }
@@ -2271,7 +2281,7 @@ static void do_bootfile(char *bootfilename USES_REGS) {
     CACHE_REGS
     YAP_Reset(YAP_FULL_RESET);
     Yap_StartSlots();
-    t = YAP_ReadFromStream(bootfile);
+    t = YAP_ReadClauseFromStream(bootfile);
     // Yap_DebugPlWrite(t);fprintf(stderr, "\n");
     if (t == 0) {
       fprintf(stderr,

@@ -42,6 +42,7 @@
 
 :- use_system_module( '$_boot', ['$cut_by'/1]).
 
+% :- start_low_level_trace.
 
 % This is the YAP init file
 % should be consulted first step after booting
@@ -108,30 +109,6 @@ otherwise.
 :- '$handle_throw'(_,_,_), !.
 
 :- '$all_current_modules'(M), yap_flag(M:unknown, error) ; true.
-
-'$early_print_message'(_, absolute_file_path(X, Y)) :- !,
-	format(user_error, X, Y), nl(user_error).
-'$early_print_message'(_, loading( C, F)) :- !,
-    '$show_consult_level'(LC),
-    format(user_error, '~*|% ~a ~w...~n', [LC,C,F]).
-'$early_print_message'(_, loaded(F,C,M,T,H)) :- !,
-    '$show_consult_level'(LC),
-    format(user_error, '~*|% ~a:~w ~a ~d bytes in ~d seconds...~n', [LC, M, F ,C, H, T]).
-'$early_print_message'(Level, Msg) :-
-    source_location(F0, L),
-    !,
-    format(user_error, '~a:~d:0: unprocessed ~a ~w ~n', [F0, L,Level,Msg]).
-'$early_print_message'(Level, Msg) :-
-	format(user_error, 'unprocessed ~a ~w ~n', [Level,Msg]).
-
-
-print_message(Severity, Term) :-
-	'$pred_exists'(execute_print_message(_,_), '$messages'),
-    '$messages':execute_print_message(Severity, Term),
-    !.
-print_message(Level, Msg) :-
-     source_location(F0, L),
-    '$early_print_message'(Level, Msg).
 
 
 :- bootstrap('arith.yap').
@@ -213,7 +190,8 @@ print_message(Level, Msg) :-
 :-	 ['protect.yap'].
 
 version(yap,[6,3]).
-q:- op(1150,fx,(mode)).
+
+:- op(1150,fx,(mode)).
 
 :- dynamic 'extensions_to_present_answer'/1.
 

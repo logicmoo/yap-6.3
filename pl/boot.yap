@@ -171,7 +171,7 @@ list, since backtracking could not "pass through" the cut.
 
 */
 
-system_module(Mod, _SysExps, _Decls) :- ! .
+system_module(_Mod, _SysExps, _Decls) :- ! .
 %    new_system_module(Mod).
 
 use_system_module(_init, _SysExps) :- !.
@@ -252,6 +252,55 @@ private(_).
 :- use_system_module( '$_strict_iso', ['$check_iso_strict_clause'/1,
         '$iso_check_goal'/2]).
 
+
+   
+'$early_print_message'(_, absolute_file_path(X, Y)) :- !,
+	format(user_error, X, Y), nl(user_error).
+'$early_print_message'(_, loading( C, F)) :- !,
+    '$show_consult_level'(LC),
+    format(user_error, '~*|% ~a ~w...~n', [LC,C,F]).
+'$early_print_message'(_, loaded(F,C,M,T,H)) :- !,
+    '$show_consult_level'(LC),
+    format(user_error, '~*|% ~a:~w ~a ~d bytes in ~d seconds...~n', [LC, M, F ,C, H, T]).
+'$early_print_message'(Level, Msg) :-
+    source_location(F0, L),
+    !,
+    format(user_error, '~a:~d:0: unprocessed ~a ~w ~n', [F0, L,Level,Msg]).
+'$early_print_message'(Level, Msg) :-
+	format(user_error, 'unprocessed ~a ~w ~n', [Level,Msg]).
+
+'$exceptional_cases'(_:print_message(Context, Msg)) :-
+    '$early_print_message'(Context, Msg).
+ 
+'$undefp'([M0|G0], Action) :-
+    % make sure we do not loop on undefined predicates
+    '$stop_creeping'(Current),
+    yap_flag( unknown, _, fail),
+ %   yap_flag( debug, Debug, false),
+    (
+     '$exceptional_cases'(M0:G0),
+     '$undefp_search'(M0:G0, NM:NG),
+     ( M0 \== NM -> true  ; G0 \== NG ),
+     NG \= fail,
+    '$pred_exists'(NG,NM)
+	->
+     yap_flag( unknown, _, Action),
+  %   yap_flag( debug, _, Debug),
+     (
+       Current == true
+      ->
+       % carry on signal processing
+       '$start_creep'([NM|NG], creep)
+     ;
+       '$execute0'(NG, NM)
+     )
+	;
+     yap_flag( unknown, _, Action),
+%     yap_flag( debug, _, Debug),
+    '$pred_exists'('$handle_error'(Action,G0,M0), prolog),
+     '$handle_error'(Action,G0,M0)
+    ).
+    
 /*
 '$undefp'([M0|G0], Default) :-
     G0 \= '$imported_predicate'(_,_,_,_),
@@ -281,11 +330,13 @@ private(_).
 	'$prepare_goals'(A,NA,Any).
 '$prepare_goals'('$do_error'(Error,Goal),
                (clause_location(Call, Caller),
+               source_module(M),
 		strip_module(M:Goal,M1,NGoal),
 		throw(error(Error, [[g|g(M1:NGoal)],[p|Call],[e|Caller],[h|g(Head)]]))
 	       ),
                true) :-
-	!.
+	!,
+    '$head_and_body'(NGoal,Head,_Body).
 '$prepare_goals'(X is AOB,
                  is(X, IOp, A, B ),
 		 true) :-
@@ -570,14 +621,14 @@ number of steps.
 
 '$command'(C,VL,Pos,Con) :-
 	current_prolog_flag(strict_iso, true), !,      /* strict_iso on */
-	 '$execute_command'(C,VL,Pos,Con,C).
+	 '$execute_command'(C,VL,Pos,Con,_Source).
 '$command'(C,VL,Pos,Con) :-
 	( (Con = top ; var(C) ; C = [_|_])  ->
 	  '$execute_command'(C,VL,Pos,Con,C), ! ;
 	  % do term expansion
 	  expand_term(C, EC),
 	  % execute a list of commands
-	  '$execute_commands'(EC,VL,Pos,Con,C),
+	  '$execute_commands'(EC,VL,Pos,Con,_Source),
 	  % succeed only if the *original* was at end of file.
 	  C == end_of_file
 	).
@@ -713,15 +764,15 @@ number of steps.
  % module prefixes all over the place, although unnecessarily so.
  %
  % @param [in] _G_ is the clause to compile
- % @param [in] _Vs_ a list of varables and their name
+ % @param [in] _Vs_ a list of variables and their name
  % @param [in] _Pos_ the source-code position
  % @param [in] _N_  a flag telling whether to add first or last
- % @param [in] _Source_ the original clause
-'$go_compile_clause'(G,Vs,Pos, Where, Source) :-
-     '$precompile_term'(G, G0, G1),
+ % @param [out] _Source_ the user-tranasformed clause
+'$go_compile_clause'(G, _Vs, _Pos, Where, Source) :-
+     '$precompile_term'(G, Source, G1),
      !,
-	 '$$compile'(G1, Where, G0, _).
- '$go_compile_clause'(G,Vs,Pos, Where, Source) :-
+	 '$$compile'(G1, Where, Source, _).
+ '$go_compile_clause'(G,_Vs,_Pos, _Where, _Source) :-
      throw(error(system, compilation_failed(G))).
 
 '$$compile'(C, Where, C0, R) :-
@@ -741,7 +792,7 @@ number of steps.
     recorded('$import','$import'(NM,Mod,NH,H,_,_),RI),
 %    NM \= Mod,
     functor(NH,N,Ar),
-    '$early_print'(warning,redefine_imported(Mod,NM,M:N/Ar)),
+    '$early_print'(warning,redefine_imported(Mod,NM,Mod:N/Ar)),
     erase(RI),
     fail.
 '$init_pred'(H, Mod, Where ) :-
@@ -1423,15 +1474,16 @@ bootstrap(F) :-
 % return two arguments: Expanded0 is the term after "USER" expansion.
 %                       Expanded is the final expanded term.
 %
-'$precompile_term'(Term, Expanded0, Expanded) :-
+'$precompile_term'(Term, ExpandedUser, Expanded) :-
 %format('[ ~w~n',[Term]),
-	'$expand_clause'(Term, Expanded0, ExpandedI), !,
+	'$expand_clause'(Term, ExpandedUser, ExpandedI), 
+    !,
 %format('      -> ~w~n',[Expanded0]),
 	(
 	 current_prolog_flag(strict_iso, true)      /* strict_iso on */
     ->
 	 Expanded = ExpandedI,
-	 '$check_iso_strict_clause'(Expanded0)
+	 '$check_iso_strict_clause'(ExpandedUser)
     ;
 	 '$expand_array_accesses_in_term'(ExpandedI,Expanded)
     -> true
@@ -1650,7 +1702,8 @@ log_event( String, Args ) :-
 	yap_flag(toplevel_prompt, P),
 	atomic_concat(LF, PF),
 	prompt1(PF),
-	prompt(_,'    ').
+	prompt(_,'    '),
+    '$ensure_prompting'.
 
 
 /**
