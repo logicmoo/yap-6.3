@@ -84,7 +84,7 @@ Grammar related built-in predicates:
         {}/3,
         ('|')/4], ['$do_error'/2]).
 
-:- use_module( library( expand_macros ) ).
+:-(use_module(library(expand_macros))).
 
 % :- meta_predicate ^(?,0,?).
 % ^(Xs, Goal, Xs) :- call(Goal).
@@ -283,9 +283,9 @@ prolog:'\\+'(A, S0, S) :-
 
 :- multifile system:goal_expansion/2.
 
-:- dynamic system:goal_expansion/2.
+:- dynamic(system:goal_expansion/2).
 
-:- dynamic prolog:'$goal_expansion_allowed'/0.
+:- dynamic(prolog:'$goal_expansion_allowed'/0).
 
 prolog:'$goal_expansion_allowed'.
 

@@ -70,7 +70,7 @@ attr_unify_hook(DelayList, _) :-
 	wake_delays(DelayList).
 	
 wake_delays([]).
-wake_delays(Delay.List) :-
+wake_delays([Delay|List]) :-
 	wake_delay(Delay),
 	wake_delays(List).
 
@@ -142,6 +142,7 @@ freeze_goal(V,G) :-
 	'$current_module'(M),
 	internal_freeze(V, redo_freeze(_Done,V,M:G)).
 
+/*
 %
 %
 % Dif is tricky because we need to wake up on the two variables being
@@ -178,6 +179,8 @@ freeze_goal(V,G) :-
 % several times. dif calls a special version of freeze that checks
 % whether that is in fact the case.
 %
+*/
+
 /** @pred dif( _X_, _Y_) 
 
 

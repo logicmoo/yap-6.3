@@ -14,6 +14,9 @@
 * comments:	Input/Output C implemented predicates			 *
 *									 *
 *************************************************************************/
+#ifdef SCCS
+static char SccsId[] = "%W% %G%";
+#endif
 
 /**
  * @file   console.c
@@ -85,10 +88,11 @@ is_same_tty2 (USES_REGS1)
   return out;
 }
 
+
 void
-Yap_ConsoleOps( StreamDesc *s, bool recursive )
+Yap_ConsoleOpsR( StreamDesc *s, bool recursive )
 {
-  if (!recursive)
+  //if (!recursive)
   Yap_DefaultStreamOps( s );
   /* the putc routine only has to check it is putting out a newline */
   s->stream_putc = ConsolePutc;
@@ -101,6 +105,12 @@ Yap_ConsoleOps( StreamDesc *s, bool recursive )
     }
 #endif
   s->stream_getc = ConsoleGetc;
+}
+
+void
+Yap_ConsoleOps( StreamDesc *s )
+{
+	Yap_ConsoleOpsR(s, FALSE);
 }
 
 /* static */
@@ -160,15 +170,15 @@ ConsoleGetc(int sno)
     if (LOCAL_PrologMode & AbortMode) {
       Yap_Error(ABORT_EVENT, TermNil, "");
       LOCAL_ErrorMessage = "Abort";
-      return EOF;
+      return console_post_process_eof(s);
     }
     goto restart;
   } else {
     LOCAL_PrologMode &= ~ConsoleGetcMode;
   }
   if (ch == EOF)
-    return EOF;    
-  return ch;
+    return console_post_process_eof(s);    
+  return console_post_process_read_char(ch, s);
 }
 
 /** @pred prompt1(+ _A__)

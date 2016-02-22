@@ -180,13 +180,13 @@ predicates written in C, cannot be spied.
 
 
 */
- spy Spec :-
+ (spy(Spec)):-
 	 '$init_debugger',
 	 prolog:debug_action_hook(spy(Spec)), !.
- spy L :-
+ (spy(L)):-
 	 '$current_module'(M),
 	 '$suspy'(L, spy, M), fail.
- spy _ :- debug.
+ (spy(_)):- debug.
 
 /** @pred nospy( + _P_ )
 

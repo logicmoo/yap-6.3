@@ -407,7 +407,7 @@ add_subDIRECTORY (packages/python)
 
 add_subDIRECTORY (packages/jpl)
 
-add_subDIRECTORY (packages/swicli)
+# add_subDIRECTORY (packages/swicli)
 
 add_subDIRECTORY (packages/swig)
 

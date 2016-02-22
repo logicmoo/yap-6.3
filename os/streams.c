@@ -140,6 +140,7 @@ int GetFreeStreamD(void) {
   LOCK(GLOBAL_Stream[sno].streamlock);
   UNLOCK(GLOBAL_StreamDescLock);
   GLOBAL_Stream[sno].encoding = LOCAL_encoding;
+  GLOBAL_Stream[sno].och = '\0';
   return sno;
 }
 
@@ -647,8 +648,7 @@ static Int cont_stream_property(USES_REGS1) { /* current_stream */
    if (p == STREAM_PROPERTY_END ) {
       // move to next existing stream
       LOCK(GLOBAL_StreamDescLock);
-    while (++i < MaxStreams && GLOBAL_Stream[i].status & Free_Stream_f) 
-      {}
+    while (++i < MaxStreams && GLOBAL_Stream[i].status & Free_Stream_f) ;
     UNLOCK(GLOBAL_StreamDescLock);
     if (i < MaxStreams) {
        EXTRA_CBACK_ARG(2, 1) = MkIntTerm(i);      
@@ -1228,6 +1228,7 @@ static Int
       return (FALSE);
     }
     GLOBAL_Stream[sno].stream_getc = PlGetc;
+    GLOBAL_Stream[sno].stream_gets = PlGetsFunc();
   } else if (FunctorOfTerm(tin) == FunctorStreamEOS) {
     if (IsVarTerm(tp = ArgOfTerm(1, tin))) {
       UNLOCK(GLOBAL_Stream[sno].streamlock);
@@ -1251,7 +1252,8 @@ static Int
       return (FALSE);
     }
     GLOBAL_Stream[sno].stream_getc = PlGetc;
-   /* reset the counters */
+    GLOBAL_Stream[sno].stream_gets = PlGetsFunc();
+    /* reset the counters */
     GLOBAL_Stream[sno].linepos = 0;
     GLOBAL_Stream[sno].linecount = 1;
     GLOBAL_Stream[sno].charcount = 0;
