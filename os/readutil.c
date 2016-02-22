@@ -33,10 +33,9 @@ static Int
 rl_to_codes(Term TEnd, int do_as_binary, int arity USES_REGS)
 {
   int sno = Yap_CheckStream (ARG1, Input_Stream_f, "read_line_to_codes/2");
-  StreamDesc *st = GLOBAL_Stream+sno;
   Int status;
   UInt max_inp, buf_sz, sz;
-  int *buf;
+  char *buf;
   bool  binary_stream;
 
   if (sno < 0)
@@ -48,28 +47,15 @@ rl_to_codes(Term TEnd, int do_as_binary, int arity USES_REGS)
     return Yap_unify_constant(ARG2, MkAtomTerm (AtomEof));
   }
   max_inp = (ASP-HR)/2-1024;
-  buf = (int *)TR;
-  buf_sz = (int *)LOCAL_TrailTop-buf;
+  buf = (char *)TR;
+  buf_sz = (char *)LOCAL_TrailTop-buf;
   while (TRUE) {
     if ( buf_sz > max_inp ) {
       buf_sz = max_inp;
     }
-    if (do_as_binary && !binary_stream) {
+    if (do_as_binary && !binary_stream)
       GLOBAL_Stream[sno].status |= Binary_Stream_f;
-    }
-    if (st->status & Binary_Stream_f) {
-        char *b = (char *)TR;
-      sz = fread( b,1 , buf_sz, GLOBAL_Stream[sno].file);
-    } else {
-         int ch;
-        int *pt = buf;
-        do {
-        *pt++ = ch = st->stream_wgetc_for_read(sno);
-       if (pt+1 == buf+buf_sz)
-        break;
-         } while (ch != '\n');
-       sz = pt-buf;
-   }
+    sz = GLOBAL_Stream[sno].stream_gets(sno, buf_sz, buf);
     if (do_as_binary && !binary_stream)
       GLOBAL_Stream[sno].status &= ~Binary_Stream_f;
     if (sz == -1 || sz == 0) {
@@ -131,8 +117,7 @@ read_line_to_string( USES_REGS1 )
   int sno = Yap_CheckStream (ARG1, Input_Stream_f, "read_line_to_codes/2");
   Int status;
   UInt max_inp, buf_sz;
-  int *buf;
- StreamDesc *st = GLOBAL_Stream+sno;
+  char *buf;
 
   if (sno < 0)
     return FALSE;
@@ -142,27 +127,15 @@ read_line_to_string( USES_REGS1 )
     return Yap_unify_constant(ARG2, MkAtomTerm (AtomEof));
   }
   max_inp = (ASP-HR)/2-1024;
-  buf = (int *)TR;
-  buf_sz = (int *)LOCAL_TrailTop-buf;
+  buf = (char *)TR;
+  buf_sz = (char *)LOCAL_TrailTop-buf;
   while (true) {
     size_t sz;
     
     if ( buf_sz > max_inp ) {
       buf_sz = max_inp;
     }
-   if (st->status & Binary_Stream_f) {
-        char *b = (char *)TR;
-      sz = fread( b,1 , buf_sz, GLOBAL_Stream[sno].file);
-    } else {
-         int ch;
-        int *pt = buf;
-        do {
-        *pt++ = ch = st->stream_wgetc_for_read(sno);
-       if (pt+1 == buf+buf_sz)
-        break;
-         } while (ch != '\n');
-       sz = pt-buf;
-   }
+    sz = GLOBAL_Stream[sno].stream_gets(sno, buf_sz, buf);
     if (sz == -1 || sz == 0) {
       if (GLOBAL_Stream[sno].status & Eof_Stream_f) {
         UNLOCK(GLOBAL_Stream[sno].streamlock);

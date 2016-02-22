@@ -2154,21 +2154,11 @@ X_API Term YAP_Read(FILE *f) {
   return o;
 }
 
-
 X_API Term YAP_ReadFromStream(int sno) {
   Term o;
 
   BACKUP_MACHINE_REGS();
   o = Yap_read_term(sno, TermNil, 1);
-  RECOVER_MACHINE_REGS();
-  return o;
-}
-
-X_API Term YAP_ReadClauseFromStream(int sno) {
-  Term o;
-
-  BACKUP_MACHINE_REGS();
-  o = Yap_read_term(sno, TermNil, -1);
   RECOVER_MACHINE_REGS();
   return o;
 }
@@ -2282,7 +2272,7 @@ static void do_bootfile(char *bootfilename USES_REGS) {
     CACHE_REGS
     YAP_Reset(YAP_FULL_RESET);
     Yap_StartSlots();
-    t = YAP_ReadClauseFromStream(bootfile);
+    t = YAP_ReadFromStream(bootfile);
     // Yap_DebugPlWrite(t);fprintf(stderr, "\n");
     if (t == 0) {
       fprintf(stderr,
