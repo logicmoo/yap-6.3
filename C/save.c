@@ -114,8 +114,8 @@ static int   CopyStacks( CACHE_TYPE1 );
 static int   get_coded(int, OPCODE [] CACHE_TYPE);
 static void  restore_codes(void);
 static void  RestoreDB(DBEntry * CACHE_TYPE);
-static void  RestoreDBTerm(DBTerm *, int CACHE_TYPE);
-static void  CleanClauses(yamop *, yamop *,PredEntry * CACHE_TYPE);
+static void  RestoreDBTerm(DBTerm *, bool, int CACHE_TYPE);
+static void  CleanClauses(yamop *First, yamop *Last, PredEntry *pp USES_REGS);
 static void  rehash(CELL *, int, int CACHE_TYPE);
 static void  CleanCode(PredEntry * CACHE_TYPE);
 static void  RestoreEntries(PropEntry *, int CACHE_TYPE);
@@ -186,7 +186,7 @@ do_SYSTEM_ERROR_INTERNAL(yap_error_number etype, const char *msg)
 
 inline static
 int myread(FILE *fd, char *buffer, Int len) {
-  ssize_t nread;
+  size_t nread;
 
   while (len > 0) {
     nread = fread(buffer, 1,  (int)len, fd);
@@ -202,11 +202,11 @@ int myread(FILE *fd, char *buffer, Int len) {
 inline static
 Int
 mywrite(FILE *fd, char *buff, Int len) {
-  ssize_t nwritten;
+  size_t nwritten;
   
   while (len > 0) {
     nwritten = fwrite(buff, 1, (size_t)len, fd);
-    if (nwritten < 0) {
+    if ((long int)nwritten < 0) {
       return do_SYSTEM_ERROR_INTERNAL(SYSTEM_ERROR_INTERNAL,"bad write on saved state");
     }
     buff += nwritten;
@@ -1069,7 +1069,7 @@ restore_regs(int flag USES_REGS)
     S = PtoGloAdjust(S);
     if (EX) {
       EX = DBTermAdjust(EX);
-      RestoreDBTerm(EX, TRUE PASS_REGS);
+      RestoreDBTerm(EX, false, TRUE PASS_REGS);
     }
     LOCAL_WokenGoals = AbsAppl(PtoGloAdjust(RepAppl(LOCAL_WokenGoals)));
   }
@@ -1440,7 +1440,7 @@ OpenRestore(const char *inpf, char *YapLibDir, CELL *Astate, CELL *ATrail, CELL 
   CACHE_REGS
     
   int mode;
-  char fname[PATH_MAX+1];
+  char fname[YAP_FILENAME_MAX +1];
 
   if (!Yap_findFile( inpf, YAP_STARTUP, YapLibDir, fname, true, YAP_SAVED_STATE, true, true))
     return false;

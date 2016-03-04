@@ -26,8 +26,8 @@
 #include <stdio.h>
 #include <wchar.h>
 
-#include <Yatom.h>
 #include "os/YapIOConfig.h"
+#include <Yatom.h>
 
 #ifndef _PL_WRITE_
 
@@ -149,7 +149,7 @@ extern int errno;
 #endif
 
 uint64_t HashFunction(const unsigned char *);
-uint64_t  WideHashFunction(wchar_t *);
+uint64_t WideHashFunction(wchar_t *);
 
 INLINE_ONLY inline EXTERN Term MkCharTerm(Int c);
 
@@ -168,5 +168,8 @@ INLINE_ONLY inline EXTERN Term MkCharTerm(Int c) {
   cs[1] = '\0';
   return MkAtomTerm(Yap_LookupMaybeWideAtom(cs));
 }
+
+/// UT when yap started
+uint64_t Yap_StartOfWTimes;
 
 #endif

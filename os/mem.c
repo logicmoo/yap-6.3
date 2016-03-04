@@ -74,20 +74,21 @@ static int MemGetc( int);
 
 /* read from memory */
 static int
-MemGetc (int sno)
+MemGetc(int sno)
 {
-  register StreamDesc *s = &GLOBAL_Stream[sno];
-  Int ch;
-  int spos;
+	register StreamDesc *s = &GLOBAL_Stream[sno];
+	Int ch;
+	int spos;
 
-  spos = s->u.mem_string.pos;
-  if (spos == s->u.mem_string.max_size) {
-    return post_process_eof(s);
-  } else {
-    ch = s->u.mem_string.buf[spos];
-    s->u.mem_string.pos = ++spos;
-  }
-  return post_process_read_char(ch, s);
+	spos = s->u.mem_string.pos;
+	if (spos == s->u.mem_string.max_size) {
+		return -1;
+	}
+	else {
+		ch = s->u.mem_string.buf[spos];
+		s->u.mem_string.pos = ++spos;
+	}
+	return ch;
 }
 #endif
 

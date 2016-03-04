@@ -14,9 +14,6 @@
 * comments:	Input/Output C implemented predicates			 *
 *									 *
 *************************************************************************/
-#ifdef SCCS
-static char SccsId[] = "%W% %G%";
-#endif
 
 /**
  * @file   console.c
@@ -251,6 +248,9 @@ void Yap_InitConsole(void) {
   Yap_InitCPred ("prompt1", 1, prompt1, SafePredFlag|SyncPredFlag);
   Yap_InitCPred ("$is_same_tty", 2, is_same_tty2, SafePredFlag|SyncPredFlag|HiddenPredFlag);
   Yap_InitCPred ("prompt", 2, prompt, SafePredFlag|SyncPredFlag);
+#ifdef O_KEEP_OLDIO
+  Yap_InitCPred ("$ensure_prompting", 0, ensure_prompting, SafePredFlag|SyncPredFlag);
+#endif
 
 }
 

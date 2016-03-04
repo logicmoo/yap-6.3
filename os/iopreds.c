@@ -206,8 +206,8 @@ static void unix_upd_stream_info(StreamDesc *s) {
     }
 #if _MSC_VER
     /* standard error stream should never be buffered */
-    else if (StdErrStream == s - Stream) {
-      setvbuf(s->u.file.file, NULL, _IONBF, 0);
+    else if (StdErrStream == s - GLOBAL_Stream) {
+      setvbuf(s->file, NULL, _IONBF, 0);
     }
 #endif
     s->status |= Seekable_Stream_f;
@@ -634,8 +634,28 @@ int console_post_process_eof(StreamDesc *s) {
 
 /* check if we read a newline or an EOF */
 int post_process_read_char(int ch, StreamDesc *s) {
+  if (ch == EOF) {
+      return post_process_weof(s);
+  }
   ++s->charcount;
   ++s->linepos;
+  if (ch == '\n') {
+    ++s->linecount;
+    s->linepos = 0;
+    /* don't convert if the stream is binary */
+    if (!(s->status & Binary_Stream_f))
+      ch = 10;
+  }
+  return ch;
+}
+
+
+int post_process_read_wchar(int ch, size_t n, StreamDesc *s) {
+  if (ch == EOF) {
+      return post_process_weof(s);
+  }
+  s->charcount += n;
+  s->linepos += n;
   if (ch == '\n') {
     ++s->linecount;
     s->linepos = 0;

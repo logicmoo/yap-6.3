@@ -397,7 +397,7 @@ static void InitOps(void) {
 /// @}
 
 #if DEBUG
-#ifdef HAVE_ISATTY
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #endif
