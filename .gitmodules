@@ -1,0 +1,6 @@
+[submodule "packages/swicli"]
+	path = packages/swicli
+	url = https://github.com/swi-to-yap/swicli
+[submodule "porting"]
+	path = porting
+	url = https://github.com/swi-to-yap/contrib
