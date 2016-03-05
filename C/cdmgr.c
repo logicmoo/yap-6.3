@@ -4472,7 +4472,7 @@ static bool pred_flag_clause(Functor f, Term mod, const char *name,
     sprintf(s, "%lld", (long long int)val);
 #endif
     mpz_init_set_str(&rop, s, 10);
-    s[1] = Yap_MkBigNumTerm((void *)&rop);
+    s[1] = YAP_MkBigNumTerm((void *)&rop);
   }
 #endif
   tn = Yap_MkApplTerm(f, 2, s);

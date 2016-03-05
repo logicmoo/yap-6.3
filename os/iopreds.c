@@ -206,8 +206,8 @@ static void unix_upd_stream_info(StreamDesc *s) {
     }
 #if _MSC_VER
     /* standard error stream should never be buffered */
-    else if (StdErrStream == s - Stream) {
-      setvbuf(s->u.file.file, NULL, _IONBF, 0);
+    else if (StdErrStream == s - GLOBAL_Stream) {
+		setvbuf(s->file, NULL, _IONBF, 0);
     }
 #endif
     s->status |= Seekable_Stream_f;
