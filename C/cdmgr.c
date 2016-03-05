@@ -1567,7 +1567,9 @@ Int Yap_source_line_no(void) {
 
 Atom Yap_source_file_name(void) {
   CACHE_REGS
-  return LOCAL_SourceFileName;
+  if (LOCAL_SourceFileName)
+    return LOCAL_SourceFileName;
+  return AtomNil;
 }
 
 /**
@@ -1602,8 +1604,7 @@ bool Yap_constPred(PredEntry *p) {
   return false;
 }
 
-bool
-Yap_addclause(Term t, yamop *cp, Term tmode, Term mod, Term *t4ref)
+bool Yap_addclause(Term t, yamop *cp, Term tmode, Term mod, Term *t4ref)
 /*
  *
  mode
@@ -1625,13 +1626,13 @@ Yap_addclause(Term t, yamop *cp, Term tmode, Term mod, Term *t4ref)
     mode = consult;
   } else if (tmode == TermReconsult) {
     mode = consult;
-  } else if (tmode  == TermAsserta) {
+  } else if (tmode == TermAsserta) {
     mode = asserta;
-  } else if (tmode  == TermAssertz) {
+  } else if (tmode == TermAssertz) {
     mode = assertz;
-  } else if (tmode  == TermAssertaStatic) {
+  } else if (tmode == TermAssertaStatic) {
     mode = asserta;
-  } else if (tmode  == TermAssertzStatic) {
+  } else if (tmode == TermAssertzStatic) {
     mode = assertz;
   }
   if (IsApplTerm(t) && FunctorOfTerm(t) == FunctorAssert)
@@ -2393,7 +2394,7 @@ static Int p_is_multifile(USES_REGS1) { /* '$is_multifile'(+S,+Mod)	 */
   return (out);
 }
 
-static Int p_new_system_predicate(
+static Int new_system_predicate(
     USES_REGS1) { /* '$new_system_predicate'(+N,+Ar,+Mod)  */
   Atom at;
   arity_t arity;
@@ -2423,9 +2424,9 @@ static Int p_new_system_predicate(
     UNLOCKPE(43, pe);
     return false;
   }
-  pe->PredFlags |= StandardPredFlag;
+  pe->PredFlags |= (StandardPredFlag);
   UNLOCKPE(43, pe);
-  return (TRUE);
+  return (true);
 }
 
 static Int
@@ -2434,7 +2435,7 @@ static Int
   bool out;
 
   pe = get_pred(Deref(ARG1), Deref(ARG2), "system_predicate");
-  if (EndOfPAEntr(pe) || pe->OpcodeOfPred == UNDEF_OPCODE)
+  if (EndOfPAEntr(pe))
     return FALSE;
   PELOCK(27, pe);
   out = (pe->PredFlags & SystemPredFlags);
@@ -2504,30 +2505,30 @@ static Int p_is_exo(USES_REGS1) { /* '$is_dynamic'(+P)	 */
   return (out);
 }
 
-static Int p_owner_file(USES_REGS1) { /* '$owner_file'(+P,M,F)	 */
+static Int owner_file(USES_REGS1) { /* '$owner_file'(+P,M,F)	 */
   PredEntry *pe;
   Atom owner;
 
   pe = get_pred(Deref(ARG1), Deref(ARG2), "$is_source");
   if (EndOfPAEntr(pe))
-    return FALSE;
+    return false;
   PELOCK(29, pe);
   if (pe->ModuleOfPred == IDB_MODULE) {
     UNLOCKPE(47, pe);
-    return FALSE;
+    return false;
   }
   if (pe->PredFlags & MultiFileFlag) {
     UNLOCKPE(48, pe);
-    return FALSE;
+    return false;
   }
- if (is_system(pe) || is_foreign(pe) ) { 
-   UNLOCKPE(48, pe);
-    return FALSE;
- } 
+  if (is_system(pe) || is_foreign(pe)) {
+    UNLOCKPE(48, pe);
+    return false;
+  }
   owner = pe->src.OwnerFile;
   UNLOCKPE(49, pe);
-  if (owner == AtomNil)
-    return FALSE;
+  if (owner == AtomNil || owner == NULL)
+    return false;
   return Yap_unify(ARG3, MkAtomTerm(owner));
 }
 
@@ -4573,7 +4574,7 @@ void Yap_InitCdMgr(void) {
                 TestPredFlag | SafePredFlag);
   Yap_InitCPred("$is_source", 2, p_is_source, TestPredFlag | SafePredFlag);
   Yap_InitCPred("$is_exo", 2, p_is_exo, TestPredFlag | SafePredFlag);
-  Yap_InitCPred("$owner_file", 3, p_owner_file, SafePredFlag);
+  Yap_InitCPred("$owner_file", 3, owner_file, SafePredFlag);
   Yap_InitCPred("$set_owner_file", 3, p_set_owner_file, SafePredFlag);
   Yap_InitCPred("$mk_d", 2, p_mk_d, SafePredFlag);
   Yap_InitCPred("$sys_export", 2, p_sys_export, TestPredFlag | SafePredFlag);
@@ -4593,7 +4594,7 @@ void Yap_InitCdMgr(void) {
                 SafePredFlag | SyncPredFlag);
   Yap_InitCPred("$is_multifile", 2, p_is_multifile,
                 TestPredFlag | SafePredFlag);
-  Yap_InitCPred("$new_system_predicate", 3, p_new_system_predicate,
+  Yap_InitCPred("$new_system_predicate", 3, new_system_predicate,
                 SafePredFlag | SyncPredFlag);
   Yap_InitCPred("$is_system_predicate", 2, p_is_system_predicate,
                 TestPredFlag | SafePredFlag);
