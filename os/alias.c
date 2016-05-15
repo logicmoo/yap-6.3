@@ -68,7 +68,6 @@ static char SccsId[] = "%W% %G%";
 #include <stdarg.h>
 #endif
 #ifdef HAVE_UNISTD_H
-
 #include <unistd.h>
 #endif
 #if HAVE_CTYPE_H
@@ -337,7 +336,7 @@ FetchAlias (int sno)
     }
     aliasp++;
   }
-  return(AtomFoundVar);
+  return NULL;
 }
 
 /* check if arg is an alias */

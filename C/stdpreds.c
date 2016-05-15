@@ -1,4 +1,3 @@
-
 /*************************************************************************
 *									 *
 *	 YAP Prolog 							 *
@@ -35,11 +34,11 @@ static char SccsId[] = "%W% %G%";
 #if YAP_JIT
 #include "amijit.h"
 #endif
-#include "Yatom.h"
+#include "Foreign.h"
 #include "YapHeap.h"
+#include "Yatom.h"
 #include "eval.h"
 #include "yapio.h"
-#include "Foreign.h"
 #ifdef TABLING
 #include "tab.macros.h"
 #endif /* TABLING */
@@ -56,8 +55,8 @@ static char SccsId[] = "%W% %G%";
 #if YAP_JIT
 #include <JIT_Compiler.hpp>
 #endif
-#include <wchar.h>
 #include <fcntl.h>
+#include <wchar.h>
 
 static Int p_setval(USES_REGS1);
 static Int p_value(USES_REGS1);
@@ -385,10 +384,12 @@ static Int p_systime(USES_REGS1) {
 }
 
 static Int p_walltime(USES_REGS1) {
-  Int now, interval;
-  Yap_walltime_interval(&now, &interval);
-  return (Yap_unify_constant(ARG1, MkIntegerTerm(now)) &&
-          Yap_unify_constant(ARG2, MkIntegerTerm(interval)));
+  uint64_t now, interval;
+  uint64_t t = Yap_walltime();
+  now = t - Yap_StartOfWTimes;
+  interval = t - LOCAL_LastWTime;
+  return (Yap_unify_constant(ARG1, MkIntegerTerm(now / 1000)) &&
+          Yap_unify_constant(ARG2, MkIntegerTerm(interval / 1000)));
 }
 
 static Int p_univ(USES_REGS1) { /* A =.. L			 */
@@ -631,13 +632,13 @@ static Int
 
 static bool valid_prop(Prop p, Term task) {
   if ((RepPredProp(p)->PredFlags & HiddenPredFlag) ||
-      (RepPredProp(p)->OpcodeOfPred == UNDEF_OPCODE) ){
+      (RepPredProp(p)->OpcodeOfPred == UNDEF_OPCODE)) {
     return false;
   }
-  if(task == TermSystem || task == TermProlog)  {
+  if (task == TermSystem || task == TermProlog) {
     return RepPredProp(p)->PredFlags & StandardPredFlag;
   }
-  if(task == TermUser)  {
+  if (task == TermUser) {
     return !(RepPredProp(p)->PredFlags & StandardPredFlag);
   }
   if (IsVarTerm(task)) {
@@ -683,8 +684,8 @@ static PropEntry *nextPredForAtom(PropEntry *p, Term task) {
     return NIL;
   pe = RepPredProp(p);
   if (pe->ArityOfPE == 0 ||
-      (pe->PredFlags & (NumberDBPredFlag |AtomDBPredFlag) ) ) {
-     // if atom prop, search atom list
+      (pe->PredFlags & (NumberDBPredFlag | AtomDBPredFlag))) {
+    // if atom prop, search atom list
     return followLinkedListOfProps(p->NextOfPE, task);
   } else {
     FunctorEntry *f = pe->FunctorOfPred;
@@ -861,28 +862,27 @@ static Int cont_current_predicate(USES_REGS1) {
       ModEntry *m = Yap_GetModuleEntry(t2);
       pp = firstModulePred(m->PredForME, task);
       if (!pp) {
-          /* try Prolog Module */
-          if (task != TermUser) {        
-            ModEntry *m = Yap_GetModuleEntry(TermProlog);
-            pp = firstModulePred(m->PredForME, task);
-            if (!pp) {
-              cut_fail();
-            }
-          } 
+        /* try Prolog Module */
+        if (task != TermUser) {
+          ModEntry *m = Yap_GetModuleEntry(TermProlog);
+          pp = firstModulePred(m->PredForME, task);
+          if (!pp) {
+            cut_fail();
+          }
+        }
       }
     }
     npp = firstModulePred(pp, task);
 
     if (!npp) {
-        if (pp->ModuleOfPred != PROLOG_MODULE &&
-            task != TermUser) {        
-            ModEntry *m = Yap_GetModuleEntry(TermProlog);
-            npp = firstModulePred(m->PredForME, task);
-            if (!npp)
-              will_cut = true; 
-        } else {
-           will_cut = true;
-        }
+      if (pp->ModuleOfPred != PROLOG_MODULE && task != TermUser) {
+        ModEntry *m = Yap_GetModuleEntry(TermProlog);
+        npp = firstModulePred(m->PredForME, task);
+        if (!npp)
+          will_cut = true;
+      } else {
+        will_cut = true;
+      }
     }
     // just try next one
     else {
@@ -893,7 +893,7 @@ static Int cont_current_predicate(USES_REGS1) {
     // operating across all modules.
     PredEntry *npp = pp;
     ModEntry *me;
-    
+
     if (!pp) {
       pp = firstModulesPred(CurrentModules->PredForME, CurrentModules, task);
     }
@@ -939,9 +939,8 @@ static Int cont_current_predicate(USES_REGS1) {
   } else {
     rc = Yap_unify(ARG3, name);
   }
-  rc = rc && (IsAtomTerm(t2) ||
-      Yap_unify(ARG2, ModToTerm(pp->ModuleOfPred)))
-       && Yap_unify(ARG1, name);
+  rc = rc && (IsAtomTerm(t2) || Yap_unify(ARG2, ModToTerm(pp->ModuleOfPred))) &&
+       Yap_unify(ARG1, name);
   if (will_cut) {
     if (rc)
       cut_succeed();
@@ -984,27 +983,24 @@ int Yap_IsOpMaxPrio(Atom at) {
   return max;
 }
 
-static bool unify_op(OpEntry *op, Term emod USES_REGS) {
+static Int unify_op(OpEntry *op USES_REGS) {
   Term tmod = op->OpModule;
 
-  if (tmod != PROLOG_MODULE &&
-      tmod != USER_MODULE &&
-      tmod != emod  &&
-      (op->Prefix || op->Infix || op->Posfix))
-     return false;
-  return Yap_unify_constant(ARG3, MkIntegerTerm(op->Prefix)) &&
+  if (tmod == PROLOG_MODULE)
+    tmod = TermProlog;
+  return Yap_unify_constant(ARG2, tmod) &&
+         Yap_unify_constant(ARG3, MkIntegerTerm(op->Prefix)) &&
          Yap_unify_constant(ARG4, MkIntegerTerm(op->Infix)) &&
          Yap_unify_constant(ARG5, MkIntegerTerm(op->Posfix));
 }
 
 static Int cont_current_op(USES_REGS1) {
   OpEntry *op = (OpEntry *)IntegerOfTerm(EXTRA_CBACK_ARG(5, 1)), *next;
-  Term emod = Deref(ARG2);
-  
+
   READ_LOCK(op->OpRWLock);
   next = op->OpNext;
   if (Yap_unify_constant(ARG1, MkAtomTerm(op->OpName)) &&
-      unify_op(op, emod PASS_REGS)) {
+      unify_op(op PASS_REGS)) {
     READ_UNLOCK(op->OpRWLock);
     if (next) {
       EXTRA_CBACK_ARG(5, 1) = (CELL)MkIntegerTerm((CELL)next);
@@ -1017,6 +1013,7 @@ static Int cont_current_op(USES_REGS1) {
     READ_UNLOCK(op->OpRWLock);
     if (next) {
       EXTRA_CBACK_ARG(5, 1) = (CELL)MkIntegerTerm((CELL)next);
+      B->cp_h = HR;
       return FALSE;
     } else {
       cut_fail();
@@ -1036,7 +1033,7 @@ static Int cont_current_atom_op(USES_REGS1) {
 
   READ_LOCK(op->OpRWLock);
   next = NextOp(RepOpProp(op->NextOfPE) PASS_REGS);
-  if (unify_op(op, CurrentModule PASS_REGS)) {
+  if (unify_op(op PASS_REGS)) {
     READ_UNLOCK(op->OpRWLock);
     if (next) {
       EXTRA_CBACK_ARG(5, 1) = (CELL)MkIntegerTerm((CELL)next);
@@ -1108,7 +1105,7 @@ void Yap_show_statistics(void) {
                               (Unsigned(TR) - Unsigned(LOCAL_TrailBase))));
   fprintf(stderr, "Runtime: %lds.\n", (unsigned long int)(runtime(PASS_REGS1)));
   fprintf(stderr, "Cputime: %lds.\n", (unsigned long int)(Yap_cputime()));
-  fprintf(stderr, "Walltime: %lds.\n", (unsigned long int)(Yap_walltime()));
+  fprintf(stderr, "Walltime: %llu.\n", Yap_walltime() / 1000);
 }
 
 static Int p_statistics_heap_max(USES_REGS1) {

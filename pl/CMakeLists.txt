@@ -18,7 +18,6 @@ set(PL_SOURCES
 	directives.yap
 	eam.yap
 	eval.yap
-    error.yap
 	errors.yap
 	flags.yap
 	grammar.yap
@@ -26,6 +25,7 @@ set(PL_SOURCES
 	hacks.yap
 	init.yap
 	listing.yap
+	bootlists.yap
 	load_foreign.yap
         messages.yap
         meta.yap

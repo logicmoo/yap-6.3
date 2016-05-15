@@ -36,11 +36,11 @@ The following predicates are used to manipulate atoms:
  */
 
 #include "Yap.h"
-#include "Yatom.h"
 #include "YapHeap.h"
+#include "YapText.h"
+#include "Yatom.h"
 #include "eval.h"
 #include "yapio.h"
-#include "YapText.h"
 #ifdef TABLING
 #include "tab.macros.h"
 #endif /* TABLING */
@@ -1254,7 +1254,7 @@ static Int atom_length(USES_REGS1) {
   Term t1 = Deref(ARG1);
   ;
   Term t2 = Deref(ARG2);
-  ssize_t len;
+  size_t len;
 
   if (!Yap_IsGroundTerm(t1)) {
     Yap_Error(INSTANTIATION_ERROR, t1, "atom_length/2");
@@ -1269,7 +1269,7 @@ static Int atom_length(USES_REGS1) {
     if (!IsIntegerTerm(t2)) {
       Yap_Error(TYPE_ERROR_INTEGER, t2, "atom_length/2");
       return (FALSE);
-    } else if ((len = IntegerOfTerm(t2)) < 0) {
+    } else if ((Int)(len = IntegerOfTerm(t2)) < 0) {
       Yap_Error(DOMAIN_ERROR_NOT_LESS_THAN_ZERO, t2, "atom_length/2");
       return (FALSE);
     }
@@ -1288,7 +1288,7 @@ restart_aux:
 static Int atomic_length(USES_REGS1) {
   Term t1 = Deref(ARG1);
   Term t2 = Deref(ARG2);
-  ssize_t len;
+  size_t len;
 
   if (!Yap_IsGroundTerm(t1)) {
     Yap_Error(INSTANTIATION_ERROR, t1, "atomic_length/2");
@@ -1304,7 +1304,7 @@ static Int atomic_length(USES_REGS1) {
       Yap_Error(TYPE_ERROR_INTEGER, t2, "atomic_length/2");
       return (FALSE);
     }
-    if ((len = IntegerOfTerm(t2)) < 0) {
+    if ((Int)(len = IntegerOfTerm(t2)) < 0) {
       Yap_Error(DOMAIN_ERROR_NOT_LESS_THAN_ZERO, t2, "atomic_length/2");
       return (FALSE);
     }
@@ -1323,7 +1323,7 @@ restart_aux:
 static Int string_length(USES_REGS1) {
   Term t1;
   Term t2 = Deref(ARG2);
-  ssize_t len;
+  size_t len;
 
   if (Yap_IsGroundTerm(t2)) {
 
@@ -1331,7 +1331,7 @@ static Int string_length(USES_REGS1) {
       Yap_Error(TYPE_ERROR_INTEGER, t2, "string_length/2");
       return (FALSE);
     }
-    if (FALSE && (len = IntegerOfTerm(t2)) < 0) {
+    if (FALSE && (Int)(len = IntegerOfTerm(t2)) < 0) {
       Yap_Error(DOMAIN_ERROR_NOT_LESS_THAN_ZERO, t2, "string_length/2");
       return (FALSE);
     }

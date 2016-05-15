@@ -987,7 +987,7 @@ int SetNamedVarValues(namedvars varmap, const char *varname, double dvalue,
   } else if ((index < 0) || (index == 0 && varmap.vars[0] == NULL)) {
     index *= -1;
     varmap.vars[index] = (char *)malloc(sizeof(char) * (strlen(varname) + 1));
-    strcpy(varmap.vars[index], varname);
+    strcpy((char *)varmap.vars[index], varname);
     varmap.dvalue[index] = dvalue;
     varmap.ivalue[index] = ivalue;
     varmap.dynvalue[index] = dynvalue;

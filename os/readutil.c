@@ -19,25 +19,27 @@ static char SccsId[] = "%W% %G%";
 #endif
 
 #include "Yap.h"
-#include "Yatom.h"
 #include "YapHeap.h"
-#include "yapio.h"
-#include "iopreds.h"
 #include "YapText.h"
+#include "Yatom.h"
 #include "encoding.h"
+#include "iopreds.h"
+#include "yapio.h"
 
 /// @addtogroup readutil
+
 
 static Int rl_to_codes(Term TEnd, int do_as_binary, int arity USES_REGS) {
   int sno = Yap_CheckStream(ARG1, Input_Stream_f, "read_line_to_codes/2");
   StreamDesc *st = GLOBAL_Stream + sno;
   Int status;
   UInt max_inp, buf_sz, sz;
-  int *buf;
+  unsigned char *buf;
   bool binary_stream;
+  int ch;
 
   if (sno < 0)
-    return FALSE;
+    return false;
   status = GLOBAL_Stream[sno].status;
   binary_stream = GLOBAL_Stream[sno].status & Binary_Stream_f;
   if (status & Eof_Stream_f) {
@@ -45,26 +47,29 @@ static Int rl_to_codes(Term TEnd, int do_as_binary, int arity USES_REGS) {
     return Yap_unify_constant(ARG2, MkAtomTerm(AtomEof));
   }
   max_inp = (ASP - HR) / 2 - 1024;
-  buf = (int *)TR;
-  buf_sz = (int *)LOCAL_TrailTop - buf;
-  while (TRUE) {
+  buf = (unsigned char *)TR;
+  buf_sz = (unsigned char *)LOCAL_TrailTop - buf;
+  while (true) {
     if (buf_sz > max_inp) {
       buf_sz = max_inp;
     }
-    if (do_as_binary && !binary_stream) {
+    if (do_as_binary && !binary_stream)
       GLOBAL_Stream[sno].status |= Binary_Stream_f;
     }
     if (st->status & Binary_Stream_f) {
       char *b = (char *)TR;
       sz = fread(b, 1, buf_sz, GLOBAL_Stream[sno].file);
     } else {
-      int ch;
-      int *pt = buf;
+      unsigned char *pt = buf;
       do {
-        *pt++ = ch = st->stream_wgetc_for_read(sno);
-        if (pt + 1 == buf + buf_sz)
+        ch = st->stream_wgetc_for_read(sno);
+        if (ch < 127)
+          *pt++ = ch;
+        else
+          pt += get_utf8(pt, 4, &ch);
+        if (pt + 4 == buf + buf_sz)
           break;
-      } while (ch != '\n' && ch != EOF);
+      } while (ch != '\n');
       sz = pt - buf;
     }
     if (do_as_binary && !binary_stream)
@@ -75,7 +80,6 @@ static Int rl_to_codes(Term TEnd, int do_as_binary, int arity USES_REGS) {
         return Yap_unify_constant(ARG2, MkAtomTerm(AtomEof));
       }
       UNLOCK(GLOBAL_Stream[sno].streamlock);
-      return FALSE;
     }
     if (GLOBAL_Stream[sno].status & Eof_Stream_f || buf[sz - 1] == 10) {
       /* we're done */
@@ -94,12 +98,9 @@ static Int rl_to_codes(Term TEnd, int do_as_binary, int arity USES_REGS) {
         end = TermNil;
       else
         end = Deref(XREGS[arity]);
-        return Yap_unify(ARG2, Yap_WCharsToDiffListOfCodes((const wchar_t *)TR,
-                                                           end PASS_REGS));
-      return Yap_unify(ARG2,
-                       Yap_CharsToDiffListOfCodes((const char *)TR, end,
-                                                  ENC_ISO_LATIN1 PASS_REGS));
-    }
+      return Yap_unify(
+          ARG2, Yap_UTF8ToDiffListOfCodes((const char *)TR, end PASS_REGS));
+     }
     buf += (buf_sz - 1);
     max_inp -= (buf_sz - 1);
     if (max_inp <= 0) {
@@ -121,12 +122,13 @@ static Int read_line_to_codes2(USES_REGS1) {
 static Int read_line_to_string(USES_REGS1) {
   int sno = Yap_CheckStream(ARG1, Input_Stream_f, "read_line_to_codes/2");
   Int status;
-  size_t max_inp, buf_sz;
+  UInt max_inp, buf_sz;
   unsigned char *buf;
+  size_t sz;
   StreamDesc *st = GLOBAL_Stream + sno;
 
   if (sno < 0)
-    return FALSE;
+    return false;
   status = GLOBAL_Stream[sno].status;
   if (status & Eof_Stream_f) {
     UNLOCK(GLOBAL_Stream[sno].streamlock);
@@ -145,60 +147,60 @@ static Int read_line_to_string(USES_REGS1) {
       char *b = (char *)TR;
       sz = fread(b, 1, buf_sz, GLOBAL_Stream[sno].file);
     } else {
-      uint32_t ch;
+      int ch;
       unsigned char *pt = buf;
       do {
         ch = st->stream_wgetc_for_read(sno);
-        if (ch == EOF) {
-            sz = -1;
-            break;
-        }
-        pt += put_utf8(pt, ch);
+        if (ch < 127)
+          *pt++ = ch;
+        else
+          pt += put_utf8(pt, ch);
         if (pt + 4 == buf + buf_sz)
           break;
       } while (ch != '\n');
       sz = pt - buf;
     }
-    if (sz == -1 || sz == 0) {
-      if (GLOBAL_Stream[sno].status & Eof_Stream_f) {
-        UNLOCK(GLOBAL_Stream[sno].streamlock);
-        return Yap_unify_constant(ARG2, MkAtomTerm(AtomEof));
-      }
+  }
+  if (sz == -1 || sz == 0) {
+    if (GLOBAL_Stream[sno].status & Eof_Stream_f) {
       UNLOCK(GLOBAL_Stream[sno].streamlock);
-      return false;
+      return Yap_unify_constant(ARG2, MkAtomTerm(AtomEof));
     }
-    if (GLOBAL_Stream[sno].status & Eof_Stream_f || buf[sz - 1] == 10) {
-      /* we're done */
+    UNLOCK(GLOBAL_Stream[sno].streamlock);
+    return false;
+  }
+  if (GLOBAL_Stream[sno].status & Eof_Stream_f || buf[sz - 1] == 10) {
+    /* we're done */
 
-      if (!(GLOBAL_Stream[sno].status & Eof_Stream_f)) {
-        UNLOCK(GLOBAL_Stream[sno].streamlock);
-        /* handle CR before NL */
-        if ((Int)sz - 2 >= 0 && buf[sz - 2] == 13)
-          buf[sz - 2] = '\0';
-        else {
-          buf[sz - 1] = '\0';
-        }
-      } else {
-        UNLOCK(GLOBAL_Stream[sno].streamlock);
-      }
-    }
-    if (GLOBAL_Stream[sno].encoding == ENC_ISO_UTF8) {
-      return Yap_unify(ARG2, Yap_UTF8ToString((const char *)TR PASS_REGS));
-    } else if (GLOBAL_Stream[sno].encoding == ENC_WCHAR) {
-      return Yap_unify(ARG2, Yap_WCharsToString((const wchar_t *)TR PASS_REGS));
-    } else {
-      return Yap_unify(
-          ARG2, Yap_CharsToString((const char *)TR, ENC_ISO_LATIN1 PASS_REGS));
-    }
-    buf += (buf_sz - 1);
-    max_inp -= (buf_sz - 1);
-    if (max_inp <= 0) {
+    if (!(GLOBAL_Stream[sno].status & Eof_Stream_f)) {
       UNLOCK(GLOBAL_Stream[sno].streamlock);
-      Yap_Error(RESOURCE_ERROR_STACK, ARG1, NULL);
-      return FALSE;
+      /* handle CR before NL */
+      if ((Int)sz - 2 >= 0 && buf[sz - 2] == 13)
+        buf[sz - 2] = '\0';
+      else {
+        buf[sz - 1] = '\0';
+      }
+    } else {
+      UNLOCK(GLOBAL_Stream[sno].streamlock);
     }
   }
+  if (GLOBAL_Stream[sno].encoding == ENC_ISO_UTF8) {
+    return Yap_unify(ARG2, Yap_UTF8ToString((const char *)TR PASS_REGS));
+  } else if (GLOBAL_Stream[sno].encoding == ENC_WCHAR) {
+    return Yap_unify(ARG2, Yap_WCharsToString((const wchar_t *)TR PASS_REGS));
+  } else {
+    return Yap_unify(
+        ARG2, Yap_CharsToString((const char *)TR, ENC_ISO_LATIN1 PASS_REGS));
+  }
+  buf += (buf_sz - 1);
+  max_inp -= (buf_sz - 1);
+  if (max_inp <= 0) {
+    UNLOCK(GLOBAL_Stream[sno].streamlock);
+    Yap_Error(RESOURCE_ERROR_STACK, ARG1, NULL);
+    return FALSE;
+  }
 }
+
 
 static Int read_stream_to_codes(USES_REGS1) {
   int sno = Yap_CheckStream(ARG1, Input_Stream_f,

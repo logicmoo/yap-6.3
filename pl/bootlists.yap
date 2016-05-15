@@ -26,7 +26,7 @@ is more efficient when it is applicable.
 */
 lists:memberchk(X,[X|_]) :- !.
 lists:memberchk(X,[_|L]) :-
-	lists:memberchk(X,L).
+       lists:memberchk(X,L).
 
 %%  member(?Element, ?Set)
 %   is true when Set is a list, and Element occurs in it.  It may be used
@@ -43,7 +43,7 @@ to test for an element or to enumerate all the elements by backtracking.
 */
 lists:member(X,[X|_]).
 lists:member(X,[_|L]) :-
-	lists:member(X,L).
+       lists:member(X,L).
 
 %% @pred  identical_member(?Element, ?Set) is nondet
 %
@@ -51,11 +51,11 @@ lists:member(X,[_|L]) :-
 % exactly identical to one of the elements that occurs in it.
 
 lists:identical_member(X,[Y|M]) :-
-	(
-	 X == Y
-	;
-	 M \= [], lists:identical_member(X,M)
-	).
+       (
+        X == Y
+       ;
+        M \= [], lists:identical_member(X,M)
+       ).
 
 /**  @pred append(? _List1_,? _List2_,? _List3_)
 
@@ -68,7 +68,7 @@ pattern (even three variables).
 */
 lists:append([], L, L).
 lists:append([H|T], L, [H|R]) :-
-	lists:append(T, L, R).
+       lists:append(T, L, R).
 
 
 :- set_prolog_flag(source, true). % :- no_source.
@@ -88,10 +88,10 @@ eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 */
 lists:delete([], _, []).
 lists:delete([Head|List], Elem, Residue) :-
-	Head = Elem,
-	lists:delete(List, Elem, Residue).
+       Head = Elem,
+       lists:delete(List, Elem, Residue).
 lists:delete([Head|List], Elem, [Head|Residue]) :-
-	lists:delete(List, Elem, Residue).
+       lists:delete(List, Elem, Residue).
 
 :- set_prolog_flag(source, false). % disable source.
 
@@ -110,7 +110,7 @@ of length  _S_.
 
 prolog:length(L, M) :-
     '$skip_list'(L, M, M0, R),
-	  ( var(R) -> '$$_length'(R, M, M0) ;
+         ( var(R) -> '$$_length'(R, M, M0) ;
            R == []
          ).
 
@@ -118,22 +118,23 @@ prolog:length(L, M) :-
 % in case A1 is unbound or a difference list, things get tricky
 %
 '$$_length'(R, M, M0) :-
-	( var(M) -> '$$_length1'(R,M,M0)
-	; M >= M0 -> '$$_length2'(R,M,M0) ).
+       ( var(M) -> '$$_length1'(R,M,M0)
+       ; M >= M0 -> '$$_length2'(R,M,M0) ).
 
 %
 % Size is unbound, generate lists
 %
 '$$_length1'([], M, M).
 '$$_length1'([_|L], O, N) :-
-	M is N + 1,
-	'$$_length1'(L, O, M).
+       M is N + 1,
+       '$$_length1'(L, O, M).
 
 %
 % Size is bound, generate single list
 %
 '$$_length2'(NL, O, N) :-
-	( N =:= O -> NL = [];
+       ( N =:= O -> NL = [];
           M is N + 1, NL  = [_|L], '$$_length2'(L, O, M) ).
 
 %% @}
+
