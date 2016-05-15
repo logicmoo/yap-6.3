@@ -260,7 +260,6 @@ load_files(Files,Opts) :-
 
 '$load_files'(Files, Opts, Call) :-
 	( '$nb_getval'('$lf_status', OldTOpts, fail), nonvar(OldTOpts) ->
-	  '$lf_opt'(silent, OldTOpts, OldVerbosity),
 	  '$lf_opt'(autoload, OldTOpts, OldAutoload)
 	;
 	   '$lf_option'(last_opt, LastOpt),
@@ -281,12 +280,6 @@ load_files(Files,Opts) :-
 	'$check_use_module'(Call,UseModule),
 	'$lf_opt'('$use_module', TOpts, UseModule),
         '$current_module'(M0),
-	( '$lf_opt'(silent, TOpts, Verbosity),
-	  var(Verbosity) ->
-	  Verbosity = OldVerbosity
-	;
-	  true
-	),
 	( '$lf_opt'(autoload, TOpts, Autoload),
 	  var(Autoload) ->
 	  Autoload = OldAutoload
@@ -361,9 +354,9 @@ load_files(Files,Opts) :-
 	    Val == large -> true ;
 	    '$do_error'(domain_error(unknown_option,qcompile(Val)),Call) ).
 '$process_lf_opt'(silent, Val, Call) :-
-	( Val == false -> true ;
-	    Val == true -> true ;
-	    '$do_error'(domain_error(unimplemented_option,silent(Val)),Call) ).
+	( Val == false -> yap_flag(verbose_load, full) ;
+	    Val == true -> yap_flag(verbose_load, silent) ;
+	    '$do_error'(domain_error(out_of_domain_option,silent(Val)),Call) ).
 '$process_lf_opt'(skip_unix_header, Val, Call) :-
 	( Val == false -> true ;
 	    Val == true -> true ;
@@ -492,7 +485,6 @@ load_files(Files,Opts) :-
        !,
        file_directory_name(F, Dir),
        working_directory(OldD, Dir),
-       '$msg_level'( TOpts, Verbosity),
        '$qload_file'(Stream, Mod, F, FilePl, File, ImportList, TOpts),
        close( Stream ),
        H is heapused-H0, '$cputime'(TF,_), T is TF-T0,
@@ -500,7 +492,7 @@ load_files(Files,Opts) :-
        working_directory( _, OldD),
        '$lf_opt'('$location', TOpts, ParentF:_Line),
        '$reexport'( TOpts, ParentF, Reexport, ImportList, File ),
-       '$early_print'(Verbosity, loaded( loaded, F, M, T, H)),
+       '$early_print'(informational, loaded( loaded, F, M, T, H)),
        working_directory( _, OldD),
        '$exec_initialization_goals',
        '$current_module'(_M, Mod).
@@ -667,7 +659,6 @@ db_files(Fs) :-
     set_stream( Stream, [alias(loop_stream), encoding(Encoding)] ),
  	'$lf_opt'('$context_module', TOpts, ContextModule),
 	'$lf_opt'(reexport, TOpts, Reexport),
-	'$msg_level'( TOpts, Verbosity),
 	'$lf_opt'(qcompile, TOpts, QCompiling),
 	'$nb_getval'('$qcompile', ContextQCompiling, ContextQCompiling = never),
 	nb_setval('$qcompile', QCompiling),
@@ -680,7 +671,7 @@ db_files(Fs) :-
 	'$lf_opt'(consult, TOpts, Reconsult0),
 	'$lf_opt'('$options', TOpts, Opts),
 	'$lf_opt'('$location', TOpts, ParentF:Line),
-	'$loaded'(File, UserFile, SourceModule, ParentF, Line, Reconsult0, Reconsult, Dir, Opts),
+ 	'$loaded'(File, UserFile, SourceModule, ParentF, Line, Reconsult0, Reconsult, Dir, Opts),
         working_directory(OldD, Dir),
 	H0 is heapused, '$cputime'(T0,_),
 	current_prolog_flag(generate_debug_info, GenerateDebug),
@@ -698,7 +689,7 @@ db_files(Fs) :-
 	    StartMsg = consulting,
 	    EndMsg = consulted
 	),
-	'$early_print'(Verbosity, loading(StartMsg, UserFile)),
+	'$early_print'(informational, loading(StartMsg, UserFile)),
 	'$lf_opt'(skip_unix_header , TOpts, SkipUnixHeader),
 	( SkipUnixHeader == true
 	    ->
@@ -711,7 +702,7 @@ db_files(Fs) :-
 	'$import_to_current_module'(File, ContextModule, Imports, _, TOpts),
 	'$current_module'(Mod, SourceModule),
 	H is heapused-H0, '$cputime'(TF,_), T is TF-T0,
-	'$early_print'(Verbosity, loaded(EndMsg, File, Mod, T, H)),
+	'$early_print'(informational, loaded(EndMsg, File, Mod, T, H)),
 	'$end_consult',
 	'$q_do_save_file'(File, UserFile, TOpts ),
 	(
@@ -745,24 +736,6 @@ db_files(Fs) :-
     !,
     '$qsave_file_'( File, UserF, F ).
 '$q_do_save_file'(_File, _, _TOpts ).
-
-% are we in autoload and autoload_flag is false?
-'$msg_level'( TOpts, Verbosity) :-
-	'$lf_opt'(autoload, TOpts, AutoLoad),
-	AutoLoad == true,
-	current_prolog_flag(verbose_autoload, false), !,
-	Verbosity = silent.
-'$msg_level'( _TOpts, Verbosity) :-
-	current_prolog_flag(verbose_load, false), !,
-	Verbosity = silent.
-'$msg_level'( _TOpts, Verbosity) :-
-	current_prolog_flag(verbose, silent), !,
-	Verbosity = silent.
-'$msg_level'( TOpts, Verbosity) :-
-	'$lf_opt'(silent, TOpts, Silent),
-	Silent == true, !,
-	Verbosity = silent.
-'$msg_level'( _TOpts, informational).
 
 '$reset_if'(OldIfLevel) :-
 	'$nb_getval'('$if_level', OldIfLevel, fail), !,
@@ -849,7 +822,6 @@ nb_setval('$if_le1vel',0).
 	'$include'(Fs, Status).
 '$include'(X, Status) :-
 	b_getval('$lf_status', TOpts),
-	'$msg_level'( TOpts, Verbosity),
 	'$full_filename'(X, Y , ( :- include(X)) ),
 	'$including'(Old, Y),
 	'$lf_opt'(stream, TOpts, OldStream),
@@ -866,12 +838,12 @@ nb_setval('$if_le1vel',0).
     '$loaded'(Y, X,  Mod, _OldY, _L, include, _, Dir, []),
     ( '$nb_getval'('$included_file', OY, fail ) -> true ; OY = [] ),
 	nb_setval('$included_file', Y),
-	'$early_print'(Verbosity, loading(including, Y)),
+	'$early_print'(informational, loading(including, Y)),
 	'$loop'(Stream,Status),
 	set_stream(OldStream, alias(loop_stream) ),
         close(Stream),
 	H is heapused-H0, '$cputime'(TF,_), T is TF-T0,
-	'$early_print'(Verbosity, loaded(included, Y, Mod, T, H)),
+	'$early_print'(informational, loaded(included, Y, Mod, T, H)),
 	working_directory(_Dir, Dir0),
 	'$including'(Y, Old),
         nb_setval('$included_file',OY).
@@ -1418,8 +1390,8 @@ initialization(_G,_OPT) :-
                 stop_low_level_trace.
 
 '$initialization'(G,OPT) :-
-   error:must_be_of_type(callable, G, initialization(G,OPT)),
-    error:must_be_of_type(oneof([after_load, now, restore]),
+    must_be_of_type(callable, G, initialization(G,OPT)),
+    must_be_of_type(oneof([after_load, now, restore]),
                 OPT, initialization(G,OPT)),
    (
 	 OPT == now

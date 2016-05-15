@@ -1,6 +1,6 @@
 
   /* This file, hglobals.h, was generated automatically by "yap -L misc/buildlocalglobal"
-     please do not update, update misc/GLOBALS instead */
+     please do not update, update H/GLOBALS instead */
 
 //
 // File defining fields in the Yap_GLOBAL global structure
@@ -141,4 +141,8 @@ const char*  RestoreFile_;
   char*  CharConversionTable2_;
 /* max priority */
   int  MaxPriority_;
+/// alias table access
+  struct AliasDescS*  FileAliases_;
+  int  NOfFileAliases_;
+  int  SzOfFileAliases_;
 } w_shared;

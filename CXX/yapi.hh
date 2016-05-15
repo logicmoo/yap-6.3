@@ -1,7 +1,7 @@
 
 #define YAP_CPP_INTERFACE 1
 
-
+#include <gmpxx.h>
 
 //! @{
 
@@ -23,9 +23,7 @@
 #include <string>
 
 // Bad export from Python
-#ifdef HAVE_STAT
-#undef HAVE_STAT
-#endif
+
 #include <config.h>
 
 extern "C" {
@@ -61,22 +59,22 @@ extern "C" {
 #endif
 
 #if _MSC_VER || defined(__MINGW32__)
-#include <windows.h>
+//#include <windows.h>
 #endif
 
 // taken from yap_structs.h
 #include "iopreds.h"
 
-extern void YAP_UserCPredicate(const char *, YAP_UserCPred, YAP_Arity arity);
+X_API void YAP_UserCPredicate(const char *, YAP_UserCPred, YAP_Arity arity);
 
 /*  void UserCPredicateWithArgs(const char *name, int *fn(), unsigned int arity) */
-extern void YAP_UserCPredicateWithArgs(const char *, YAP_UserCPred, YAP_Arity, YAP_Term);
+X_API void YAP_UserCPredicateWithArgs(const char *, YAP_UserCPred, YAP_Arity, YAP_Term);
 
 /*  void UserBackCPredicate(const char *name, int *init(), int *cont(), int
      arity, int extra) */
-extern void YAP_UserBackCPredicate(const char *, YAP_UserCPred, YAP_UserCPred, YAP_Arity, unsigned int);
+ X_API void YAP_UserBackCPredicate(const char *, YAP_UserCPred, YAP_UserCPred, YAP_Arity, YAP_Arity);
 
-extern Term Yap_StringToTerm(const char *s, size_t len, encoding_t *encp, int prio, Term *bindings_p);
+X_API Term Yap_StringToTerm(const char *s, size_t len, encoding_t *encp, int prio, Term *bindings_p);
 
 }
 

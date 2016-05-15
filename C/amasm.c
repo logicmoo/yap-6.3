@@ -282,17 +282,15 @@ static void a_fetch_cv(cmp_op_info *, int, struct intermediates *);
 static void a_fetch_vc(cmp_op_info *, int, struct intermediates *);
 static yamop *a_f2(cmp_op_info *, yamop *, int, struct intermediates *);
 
-static profile_data *
-initProfiler(PredEntry *p, struct intermediates *cip)
+profile_data *
+Yap_initProfiler(PredEntry *p)
 {
     profile_data *ptr;
+   if (p->StatisticsForPred)
+      return p->StatisticsForPred;
     if ((ptr = (profile_data *)Yap_AllocCodeSpace(sizeof(profile_data ))) == NULL) {
-        /* OOOPS, got in trouble, must do a longjmp and recover space */
-        save_machine_regs();
-        siglongjmp(cip->CompilerBotch,2);
+	return NULL;
     }
-    if (!ptr)
-        return NULL;
     INIT_LOCK(ptr->lock);
     ptr->NOfEntries = 0;
     ptr->NOfHeadSuccesses = 0;
@@ -1418,15 +1416,17 @@ a_p(op_numbers opcode, clause_info *clinfo, yamop *code_p, int pass_no, struct i
     case _equal:
       op = _p_equal;
       break;
+#if INLINE_BIG_COMPARISONS
     case _dif:
       op = _p_dif;
-      is_test = TRUE;
+      is_test = true;
       break;
     case _eq:
       op = _p_eq;
-      is_test = TRUE;
+      is_test = true;
       break;
-    case _functor:
+#endif
+      case _functor:
       code_p = check_alloc(clinfo, code_p, pass_no, cip);
       op = _p_functor;
       break;
@@ -2008,7 +2008,7 @@ a_try(op_numbers opcode, CELL lab, CELL opr, int nofalts, int hascut, yamop *cod
 	if (ap->PredFlags & CountPredFlag)
 	  newcp->opc = emit_op(_count_retry_logical);
 	else if (ap->PredFlags & ProfiledPredFlag) {
-        if (!initProfiler(ap, cip)) {
+        if (!Yap_initProfiler(ap)) {
             return NULL;
         }
 	  newcp->opc = emit_op(_profiled_retry_logical);
@@ -2017,15 +2017,16 @@ a_try(op_numbers opcode, CELL lab, CELL opr, int nofalts, int hascut, yamop *cod
 	newcp->y_u.OtaLl.s = emit_count(opr);
       } else {
 	/* trust */
-	if (ap->PredFlags & CountPredFlag)
+	if (ap->PredFlags & CountPredFlag) {
 	  newcp->opc = emit_op(_count_trust_logical);
-	else if (ap->PredFlags & ProfiledPredFlag) {
-        if (!initProfiler(ap, cip)) {
+	} else if (ap->PredFlags & ProfiledPredFlag) {
+	  if (!Yap_initProfiler(ap)) {
             return NULL;
-        }
-     newcp->opc = emit_op(_profiled_trust_logical);
-	} else
+	  }
+	  newcp->opc = emit_op(_profiled_trust_logical);
+	} else {
 	  newcp->opc = emit_op(_trust_logical);
+	}
 	newcp->y_u.OtILl.block = (LogUpdIndex *)(cip->code_addr);
 	*cip->current_trust_lab = newcp;
       }
@@ -3662,11 +3663,12 @@ do_pass(int pass_no, yamop **entry_codep, int assembling, int *clause_has_blobsp
 	if ((pe->PredFlags & (CPredFlag|UserCPredFlag|AsmPredFlag)) ||
 	    !pe->ModuleOfPred) {
 	  code_p = a_pl(_enter_profiling, pe, code_p, pass_no);
+	  Yap_initProfiler(pe);
 	}
       }
       break;
     case retry_profiled_op:
-        if (!initProfiler(cip->CurrentPred, cip)) {
+	    if (!Yap_initProfiler(cip->CurrentPred)) {
         return NULL;
     }
       code_p = a_pl(_retry_profiled, (PredEntry *)(cip->cpc->rnd1), code_p, pass_no);

@@ -280,145 +280,10 @@ such as the ones received from `call_with_time_limit/2` or thread_signal/2.  In
 most uses,  _Setup_ will perform temporary side-effects required by
  _Goal_ that are finally undone by  _Cleanup_.
 
-Success or failure of  _Cleanup_ is ignored and choice-points it
-created are destroyed (as once/1). If  _Cleanup_ throws an exception,
-this is executed as normal.
-
-Typically, this predicate is used to cleanup permanent data storage
-required to execute  _Goal_, close file-descriptors, etc. The example
-below provides a non-deterministic search for a term in a file, closing
-the stream as needed.
-
-~~~~~{.prolog}
-term_in_file(Term, File) :-
-    setup_call_cleanup(open(File, read, In),
-               term_in_stream(Term, In),
-               close(In) ).
-
-term_in_stream(Term, In) :-
-    repeat,
-    read(In, T),
-    (   T == end_of_file
-    ->  !, fail
-    ;   T = Term
-    ).
-~~~~~
-
-Note that it is impossible to implement this predicate in Prolog other than
-by reading all terms into a list, close the file and call member/2.
-Without setup_call_cleanup/3 there is no way to gain control if the
-choice-point left by `repeat` is removed by a cut or an exception.
-
-`setup_call_cleanup/2` can also be used to test determinism of a goal:
-
-~~~~~
-?- setup_call_cleanup(true,(X=1;X=2), Det=yes).
-
-X = 1 ;
-
-X = 2,
-Det = yes ;
-~~~~~
-
-This predicate is under consideration for inclusion into the ISO standard.
-For compatibility with other Prolog implementations see `call_cleanup/2`.
-
-
 */
-setup_call_cleanup(Setup, Goal, Cleanup) :-
+
+setup_call_cleanup(Setup,Goal, Cleanup) :-
 	setup_call_catcher_cleanup(Setup, Goal, _Catcher, Cleanup).
-
-/** @pred setup_call_catcher_cleanup(: _Setup_,: _Goal_, + _Catcher_,: _CleanUpGoal_)
-
-
-Similar to `setup_call_cleanup( _Setup_,  _Goal_,  _Cleanup_)` with
-additional information on the reason of calling  _Cleanup_.  Prior
-to calling  _Cleanup_,  _Catcher_ unifies with the termination
-code.  If this unification fails,  _Cleanup_ is
- *not* called.
-
-
-*/
-setup_call_catcher_cleanup(Setup, Goal, Catcher, Cleanup) :-
-	yap_hacks:disable_interrupts,
-	'$check_goal_for_setup_call_cleanup'(Setup, setup_call_cleanup(Setup, Goal, Cleanup)),
-	catch('$do_setup'(Setup),Exception,'$handle_broken_setup'(Exception)),
-	'$check_goal_for_setup_call_cleanup'(Cleanup, setup_call_cleanup(Setup, Goal, Cleanup)),
-	'$safe_call_cleanup'(Goal,Cleanup,Catcher,Exception).
-
-% make sure we don't lose interrupts if we get exceptions
-% with setup.
-'$handle_broken_setup'(Exception) :-
-	yap_hacks:enable_interrupts,
-	throw(Exception).
-
-'$check_goal_for_setup_call_cleanup'(Goal, G) :-
-	strip_module(Goal, _, MG),
-	(
-	 var(MG)
-	->
-	 yap_hacks:enable_interrupts,
-	 '$do_error'(instantiation_error,G)
-	;
-	 true
-	).
-
-% this is simple, do nothing
-'$do_setup'(A:true) :- atom(A), !.
-% this is tricky: please don't forget that interrupts are disabled at this point
-% and that they will only be enabled after setting up Cleanup
-'$do_setup'(Setup) :-
-	(
-	 '$execute'(Setup),
-	 % we don't need to care about enabling interrupts
-	 !
-	;
-	 % reenable interrupts if Setup failed
-	 yap_hacks:enable_interrupts,
-	 fail
-	).
-
-
-'$cleanup_exception'(Exception, exception(Exception), Cleanup) :- !,
-	% whatever happens, let exception go through
-	catch('$clean_call'(_,Cleanup),_,true),
-	throw(Exception).
-'$cleanup_exception'(Exception, _, _) :-
-	throw(Exception).
-
-'$safe_call_cleanup'(Goal, Cleanup, Catcher, _Exception) :-
-	'$coroutining':freeze_goal(Catcher, '$clean_call'(_Active, Cleanup)),
-	(
-	 yap_hacks:trail_suspension_marker(Catcher),
-	 yap_hacks:enable_interrupts,
-	 '$current_choice_point'(CP0),
-	 '$execute'(Goal),
-	 '$current_choice_point'(CPF),
-	 (
-	  CP0 =:= CPF
-	 ->
-	  Catcher = exit,
-	  !
-	 ;
-	  true
-	 )
-	;
-	 Catcher = fail,
-	 fail
-	).
-
-'$holds_true'.
-
-% The first argument is used by JumpEnv to verify if a throw
-% is going to be handled by the cleanup catcher. If it is so,
-% clean_call will not be called from JumpToEnv.
-'$clean_call'(_, Cleanup) :-
-	'$execute'(Cleanup), !.
-'$clean_call'(_, _).
-
-'$cc_check_throw' :-
-	'$nb_getval'('$catch', Ball, fail),
-	throw(Ball).
 
 /** @pred  call_with_args(+ _Name_,...,? _Ai_,...)
 
@@ -752,7 +617,7 @@ halt :-
 
 /** @pred  halt(+  _I_) is iso
 
-Halts Prolog, and exits to the calling application returning the code
+Halts Prolog, and exits to 1the calling application returning the code
 given by the integer  _I_.
 
 */

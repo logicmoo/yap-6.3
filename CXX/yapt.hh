@@ -1,9 +1,8 @@
+
 #ifndef YAPT_HH
 #define YAPT_HH 1
 
-class YAPAtomTerm;
-
-extern "C" Term YAP_ReadBuffer(const char *s, Term *tp);
+extern "C" Term  YAP_ReadBuffer(const char *s, Term *tp);
 
 /**
  * @brief Generic Prolog Term

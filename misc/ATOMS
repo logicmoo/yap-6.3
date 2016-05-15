@@ -15,9 +15,10 @@ A	AfLocal			N	"AF_LOCAL"
 A	AfUnix			N	"AF_UNIX"
 A	Alarm			F	"$alarm"
 A	Alias			N	"alias"
-A	All			N	"all"
+A	All             N	"all"
 A	AltNot			N	"not"
-A	Any			N	"any"
+A	Answer			N	"answer"
+A	Any             N	"any"
 A	Append			N	"append"
 A	Arg			N	"arg"
 A	Array			F	"$array"
@@ -67,7 +68,7 @@ A	Chars			N	"chars"
 A	Charset			N	"charset"
 A	ChType			F	"$char_type"
 A	CleanCall		F	"$clean_call"
-A	Colomn			N	":"
+A	Colon			N	":"
 A	CodeSpace		N	"code_space"
 A	Codes			N	"codes"
 A	CoInductive		N	"coinductive"
@@ -83,6 +84,7 @@ A	Cputime			N	"cputime"
 A	Create			N	"create"
 A	Creep			F	"$creep"
 A	CryptAtoms		N	"crypt_atoms"
+A	Curly			N	"{}"
 A	Csult			F	"$csult"
 A	CurrentModule		F	"$current_module"
 A	Cut			N	"!"
@@ -135,6 +137,7 @@ A	ExecuteInMod		F	"$execute_in_mod"
 A	ExecuteWithin		F	"$execute_within"
 A	ExecuteWoMod		F	"$execute_wo_mod"
 A	Exist			N	"exist"
+A	Exit			N	"exit"
 A	ExistenceError		N	"existence_error"
 A	ExoClause		F	"$exo_clause"
 A	ExpectedNumber		N	"expected_number_syntax"
@@ -181,6 +184,7 @@ A	HeapUsed		N	"heapused"
 A	HugeInt			N	"huge_int"
 A	IDB			N	"idb"
 A	IOMode			N	"io_mode"
+A	I			N	"i"
 A	Id			N	"id"
 A	Ignore			N	"ignore"
 A	Inf			N	"inf"
@@ -195,6 +199,7 @@ A	IntOverflow		N	"int_overflow"
 A	Integer			N	"integer"
 A	InternalCompilerError	N	"internal_compiler_error"
 A	Is			N	"is"
+A	J			N	"j"
 A	Key			N	"key"
 A	LDLibraryPath		N	"LD_LIBRARY_PATH"
 A	LONGINT			N	"LongInt"
@@ -253,6 +258,7 @@ A	NotLessThanZero		N	"not_less_than_zero"
 A	NotNewline		N	"not_newline"
 A	NotZero			N	"not_zero"
 A	Number			N	"number"
+A	Obj			N	"o__bj__"
 A	Off			N	"off"
 A	Offline			N	"offline"
 A	On			N	"on"
@@ -289,7 +295,8 @@ A	PrivateProcedure	N	"private_procedure"
 A	Procedure		N	"procedure"
 A	Profile			F	"$profile"
 A	Prolog			N	"prolog"
-A	Qly			N	"qly"
+A	ProtectStack	F	"$protect_stack"
+A	Qly			    N	"qly"
 A	Query			N	"?-"
 A	Queue			N	"queue"
 A	Quiet			N	"quiet"
@@ -316,6 +323,7 @@ A	Reset			N	"reset"
 A	Resize			N	"resize"
 A	ResourceError		N	"resource_error"
 A	RestoreRegs		F	"$restore_regs"
+A	Retry		N	"retry"
 A	RetryCounter		N	"retry_counter"
 A	RTree			N	"rtree"
 A	Safe			F	"$safe"
@@ -374,9 +382,10 @@ A	SyntaxErrorHandler	N	"syntax_error_handler"
 A	System			N	"system"
 A	SystemError		N	"SYSTEM_ERROR_INTERNAL"
 A	SystemLibraryDir	N	"system_library_directory"
-A	Term			N	"term"
-A	Terms			N	"terms"
+A 	T			N	"t"
+A 	Term			N	"term"
 A	TermExpansion		N	"term_expansion"
+A	Terms			N	"terms"
 A	Text			N	"text"
 A	TextStream		N	"text_stream"
 A	Thread			N	"thread"
@@ -391,6 +400,7 @@ A	Trail			N	"trail"
 A	True			N	"true"
 A	Tty			N	"tty"
 A	Ttys			N	"ttys"
+A 	Tuple			N	"tuple"
 A	Txt			N	"txt"
 A	TypeError		N	"type_error"
 A	Undefined		N	"undefined"
@@ -445,6 +455,7 @@ F	CleanCall		CleanCall	2
 F	Clist			When		4
 F	Codes			Codes		2
 F	Codes1			Codes		1
+F	Colon			Colon		2
 F	Comma			Comma		2
 F	CommentHook		CommentHook	3
 F	Context2		Context		2
@@ -453,12 +464,14 @@ F	Creep			Creep		1
 F	Csult			Csult		2
 F	CurrentModule		CurrentModule	1
 F	CutBy			CutBy		1
+F	Curly			Curly		1
 F	DBREF			DBREF		1
 F	Diff			Diff		2
 F	DoLogUpdClause		DoLogUpdClause	6
 F	DoLogUpdClause0		DoLogUpdClause0	6
 F	DoLogUpdClauseErase	DoLogUpdClauseErase	6
 F	DoStaticClause		DoStaticClause	5
+F	Dollar           Dollar       1
 F	DollarVar           DollarVar       1
 F	DomainError		DomainError	2
 F	Dot			Dot		2
@@ -479,6 +492,7 @@ F	EmptyCurlyBrackets	EmptyCurlyBrackets	2
 F	Eq			Eq		2
 F	Error			Error		2
 F	EvaluationError		EvaluationError	1
+F	Exception		Exception	1
 F	Execute2InMod		ExecuteWoMod	2
 F	ExecuteInMod		ExecuteInMod	2
 F	ExecuteWithin		ExecuteWithin	1
@@ -499,21 +513,24 @@ F	GoalExpansion2		GoalExpansion	2
 F	GoalExpansion		GoalExpansion	3
 F	HandleThrow		HandleThrow	3
 F	Hat			Hat		2
+F	I			I		2
 F	Id			Id		1
 F	Is			Is		2
+F	J			J		2
 F	LastExecuteWithin	LastExecuteWithin	1
 F	List			Dot		2
 F	LOOP			LOOP		1
 F	MegaClause		MegaClause	2
 F	MetaCall		MetaCall	4
 F	Minus			Minus		2
-F	Module			Colomn		2
+F	Module			Colon		2
 F	MultiFileClause		MfClause	5
 F	Mutable			MutableVariable	(sizeof(timed_var)/sizeof(CELL))
 F	Mutex			Mutex		2
 F	NotImplemented		NotImplemented	2
 F	NBQueue			Queue		4
 F	Not			Not		1
+F	Obj			Obj		1
 F	Or			Semic		2
 F	PermissionError		PermissionError	3
 F	Plus			Plus		2
@@ -521,6 +538,7 @@ F	Portray			Portray		1
 F	PrintMessage		PrintMessage	2
 F   Procedure       Procedure       5
 F	PrologConstraint	Prolog		2
+F	ProtectStack	ProtectStack    4
 F	Query			Query		1
 F	RecordedWithKey		RecordedWithKey	6
 F	RDiv			RDiv		2

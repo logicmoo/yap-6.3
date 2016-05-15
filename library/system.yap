@@ -557,21 +557,6 @@ file_property(File, Type, Size, Date, Permissions, LinkName) :-
 	file_property(File, Type, Size, Date, Permissions, LinkName, Error),
 	handle_system_internal(Error, off, file_property(File)).
 
-  
-file_exists(File, Permissions) :-
-	var(File), !,
-	throw(error(instantiation_error,file_exists(File, Permissions))).
-file_exists(File, Permissions) :-
-	\+ atom(File), !,
-	throw(error(type_error(atom,File),file_exists(File, Permissions))).
-file_exists(IFile, Permissions) :-
-	true_file_name(IFile, File),
-	file_property(File, _Type, _Size, _Date, FPermissions, _, Error),
-	var(Error),
-	process_permissions(Permissions, Perms),
-	FPermissions /\ Perms =:= Perms.
-
-process_permissions(Number, Number) :- integer(Number).
 
 %
 % environment manipulation.
@@ -696,7 +681,7 @@ shell :-
 	exec_command(FullCommand, 0, 1, 2, PID, Error),
 	handle_system_internal(Error, off, G),
 	wait(PID, _Status, Error, Id),
-	handle_system_internal(Error, Id, off, G).
+	handle_system_internal(Error, got(FullCommand, Id), off, G).
 
 shell(Command) :-
 	G = shell(Command),

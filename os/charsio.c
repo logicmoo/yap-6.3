@@ -44,9 +44,9 @@ static char SccsId[] = "%W% %G%";
  */
 
 #include "Yap.h"
-#include "Yatom.h"
 #include "YapHeap.h"
 #include "YapText.h"
+#include "Yatom.h"
 #include "yapio.h"
 #include <stdlib.h>
 #if HAVE_UNISTD_H
@@ -112,84 +112,83 @@ Int Yap_peek(int sno) {
     return ch;
   }
 #endif
-   /* buffer the character */
-  if (s->encoding == LOCAL_encoding) {
+  /* buffer the character */
+  if (s->encoding == Yap_SystemEncoding() && 0) {
     ch = fgetwc(s->file);
     ungetwc(ch, s->file);
     return ch;
   } else {
-   ocharcount = s->charcount;
-  olinecount = s->linecount;
-  olinepos = s->linepos;
+    ocharcount = s->charcount;
+    olinecount = s->linecount;
+    olinepos = s->linepos;
     ch = s->stream_wgetc(sno);
     if (ch == EOFCHAR) {
-    s->stream_getc = EOFPeek;
-    s->stream_wgetc = EOFWPeek;
-    s->status |= Push_Eof_Stream_f;
-    return ch;
-  }
-    
+      s->stream_getc = EOFPeek;
+      s->stream_wgetc = EOFWPeek;
+      s->status |= Push_Eof_Stream_f;
+      return ch;
+    }
   }
   if (s->encoding == ENC_OCTET || s->encoding == ENC_ISO_LATIN1 ||
-             s->encoding == ENC_ISO_ASCII) {
+      s->encoding == ENC_ISO_ASCII) {
     ungetc(ch, s->file);
   } else if (s->encoding == ENC_ISO_UTF8) {
     unsigned char cs[8];
     size_t n = put_utf8(cs, ch);
     while (n--) {
-      ungetc(cs[n - 1], s->file);
+      ungetc(cs[n], s->file);
     }
   } else if (s->encoding == ENC_UTF16_BE) {
-   /* do the ungetc as if a write .. */
+    /* do the ungetc as if a write .. */
     // computations
     if (ch < 0x10000) {
-        ungetc(ch % 256, s->file);
-       ungetc(ch / 256, s->file);
+      ungetc(ch % 256, s->file);
+      ungetc(ch / 256, s->file);
     } else {
-    uint16_t lead = LEAD_OFFSET + (ch >> 10);
-    uint16_t trail = 0xDC00 + (ch & 0x3FF);
+      uint16_t lead = LEAD_OFFSET + (ch >> 10);
+      uint16_t trail = 0xDC00 + (ch & 0x3FF);
 
-    ungetc(lead % 256, s->file);
-    ungetc(lead / 256, s->file);
-    ungetc(trail % 256, s->file);
-    ungetc(trail / 256, s->file);
-  }
+      ungetc(lead % 256, s->file);
+      ungetc(lead / 256, s->file);
+      ungetc(trail % 256, s->file);
+      ungetc(trail / 256, s->file);
+    }
   } else if (s->encoding == ENC_UTF16_LE) {
     if (ch < 0x10000) {
-       ungetc(ch / 256, s->file);
+      ungetc(ch / 256, s->file);
       ungetc(ch % 256, s->file);
     } else {
-    uint16_t lead = LEAD_OFFSET + (ch >> 10);
-    uint16_t trail = 0xDC00 + (ch & 0x3FF);
+      uint16_t lead = LEAD_OFFSET + (ch >> 10);
+      uint16_t trail = 0xDC00 + (ch & 0x3FF);
 
-    ungetc(trail / 256, s->file);
-    ungetc(trail % 256, s->file);
-    ungetc(lead / 256, s->file);
-    ungetc(lead % 256, s->file);
+      ungetc(trail / 256, s->file);
+      ungetc(trail % 256, s->file);
+      ungetc(lead / 256, s->file);
+      ungetc(lead % 256, s->file);
     }
-  } else if (s->encoding ==  ENC_ISO_UTF32_LE) {
-        ungetc( (ch >> 24) & 0xff, s->file);
-        ungetc( (ch >> 16) & 0xff, s->file);
-        ungetc( (ch >> 8) & 0xff, s->file);
-        ungetc( ch & 0xff, s->file);
-  } else if (s->encoding ==  ENC_ISO_UTF32_BE) {
-        ungetc( ch & 0xff, s->file);
-        ungetc( (ch >> 8) & 0xff, s->file);
-        ungetc( (ch >> 16) & 0xff, s->file);
-        ungetc( (ch >> 24) & 0xff, s->file);
+  } else if (s->encoding == ENC_ISO_UTF32_LE) {
+    ungetc((ch >> 24) & 0xff, s->file);
+    ungetc((ch >> 16) & 0xff, s->file);
+    ungetc((ch >> 8) & 0xff, s->file);
+    ungetc(ch & 0xff, s->file);
+  } else if (s->encoding == ENC_ISO_UTF32_BE) {
+    ungetc(ch & 0xff, s->file);
+    ungetc((ch >> 8) & 0xff, s->file);
+    ungetc((ch >> 16) & 0xff, s->file);
+    ungetc((ch >> 24) & 0xff, s->file);
   } else if (s->encoding == ENC_UCS2_BE) {
-   /* do the ungetc as if a write .. */
+    /* do the ungetc as if a write .. */
     // computations
-        ungetc(ch % 256, s->file);
-       ungetc(ch / 256, s->file);
-   } else if (s->encoding == ENC_UCS2_LE) {
-       ungetc(ch / 256, s->file);
-      ungetc(ch % 256, s->file);
-   } 
-   s->charcount = ocharcount;
+    ungetc(ch % 256, s->file);
+    ungetc(ch / 256, s->file);
+  } else if (s->encoding == ENC_UCS2_LE) {
+    ungetc(ch / 256, s->file);
+    ungetc(ch % 256, s->file);
+  }
+  s->charcount = ocharcount;
   s->linecount = olinecount;
   s->linepos = olinepos;
- return ch;
+  return ch;
 }
 
 static Int dopeek_byte(int sno) {
@@ -208,6 +207,20 @@ static Int dopeek_byte(int sno) {
   /* buffer the character */
   ungetc(ch, s->file);
   return ch;
+}
+
+bool store_code(int ch, Term t USES_REGS) {
+  Term t2 = Deref(t);
+  bool rc = Yap_unify_constant(t2, MkIntegerTerm(ch));
+  if (!rc && !IsVarTerm(t2)) {
+    if (!IsIntegerTerm(t2)) {
+      Yap_Error(TYPE_ERROR_INTEGER, t, "in output argument");
+    } else if (IntegerOfTerm(t2) < 0) {
+      Yap_Error(REPRESENTATION_ERROR_IN_CHARACTER_CODE, t,
+                "in output argument");
+    }
+  }
+  return rc;
 }
 
 /** @pred  at_end_of_stream(+ _S_) is iso
@@ -290,7 +303,7 @@ static Int get(USES_REGS1) { /* '$get'(Stream,-N)                     */
   while ((ch = GLOBAL_Stream[sno].stream_wgetc(sno)) <= 32 && ch >= 0)
     ;
   UNLOCK(GLOBAL_Stream[sno].streamlock);
-  return (Yap_unify_constant(ARG2, MkIntegerTerm(ch)));
+  return store_code(ch, ARG2 PASS_REGS);
 }
 
 /** @pred  get_char(+ _S_,- _C_) is iso
@@ -305,11 +318,18 @@ static Int get_char(USES_REGS1) { /* '$get'(Stream,-N)                     */
   //  Int status;
 
   if (sno < 0)
-    return FALSE;
+    return false;
   // status = GLOBAL_Stream[sno].status;
   ch = GLOBAL_Stream[sno].stream_wgetc(sno);
   UNLOCK(GLOBAL_Stream[sno].streamlock);
-  return (Yap_unify_constant(ARG2, MkCharTerm(ch)));
+  Term t2 = Deref(ARG2);
+  bool rc = Yap_unify_constant(t2, MkCharTerm(ch));
+  if (!rc) {
+    if (!IsAtomTerm(t2)) {
+      Yap_Error(TYPE_ERROR_IN_CHARACTER, ARG2, "in input argument");
+    }
+  }
+  return rc;
 }
 
 /** @pred  get_code(+ _S_,- _C_) is iso
@@ -330,7 +350,7 @@ static Int get_code(USES_REGS1) { /* get0(Stream,-N)                    */
   // status = GLOBAL_Stream[sno].status;
   out = GLOBAL_Stream[sno].stream_wgetc(sno);
   UNLOCK(GLOBAL_Stream[sno].streamlock);
-  return (Yap_unify_constant(ARG2, MkIntegerTerm(out)));
+  return store_code(out, ARG2 PASS_REGS);
 }
 
 /** @pred  get(- _C_)
@@ -351,10 +371,16 @@ static Int get_1(USES_REGS1) { /* get_code1(Stream,-N)                     */
 
   LOCK(GLOBAL_Stream[sno].streamlock);
   // status = GLOBAL_Stream[sno].status;
+  if ((GLOBAL_Stream[sno].status & Binary_Stream_f)) {
+    UNLOCK(GLOBAL_Stream[sno].streamlock);
+    PlIOError(PERMISSION_ERROR_INPUT_BINARY_STREAM, TermUserIn,
+              "while getting code");
+    return false;
+  }
   while ((ch = GLOBAL_Stream[sno].stream_wgetc(sno)) <= 32 && ch >= 0)
     ;
   UNLOCK(GLOBAL_Stream[sno].streamlock);
-  return (Yap_unify_constant(ARG2, MkIntegerTerm(ch)));
+  return store_code(ch, ARG1 PASS_REGS);
 }
 
 /** @pred  get_code(- _C_) is iso
@@ -373,9 +399,15 @@ static Int getcode_1(USES_REGS1) { /* get0(Stream,-N)                    */
 
   // status = GLOBAL_Stream[sno].status;
   LOCK(GLOBAL_Stream[sno].streamlock);
+  if ((GLOBAL_Stream[sno].status & Binary_Stream_f)) {
+    UNLOCK(GLOBAL_Stream[sno].streamlock);
+    PlIOError(PERMISSION_ERROR_INPUT_BINARY_STREAM, TermUserIn,
+              "while getting code");
+    return false;
+  }
   out = GLOBAL_Stream[sno].stream_wgetc(sno);
   UNLOCK(GLOBAL_Stream[sno].streamlock);
-  return (Yap_unify_constant(ARG1, MkIntegerTerm(out)));
+  return store_code(out, ARG1 PASS_REGS);
 }
 
 /** @pred  get_char(- _C_) is iso
@@ -390,13 +422,26 @@ current stream and unify its atom representation with  _C_.
 static Int getchar_1(USES_REGS1) { /* get0(Stream,-N)                    */
   int sno = LOCAL_c_input_stream;
   // Int status;
-  Int out;
+  Int ch;
 
   LOCK(GLOBAL_Stream[sno].streamlock);
   // status = GLOBAL_Stream[sno].status;
-  out = GLOBAL_Stream[sno].stream_wgetc(sno);
+  ch = GLOBAL_Stream[sno].stream_wgetc(sno);
+  if ((GLOBAL_Stream[sno].status & Binary_Stream_f)) {
+    UNLOCK(GLOBAL_Stream[sno].streamlock);
+    PlIOError(PERMISSION_ERROR_INPUT_BINARY_STREAM, TermUserIn,
+              "while getting code");
+    return false;
+  }
   UNLOCK(GLOBAL_Stream[sno].streamlock);
-  return (Yap_unify_constant(ARG1, MkCharTerm(out)));
+  bool rc = Yap_unify_constant(ARG1, MkCharTerm(ch));
+  if (!rc) {
+    Term t2 = Deref(ARG1);
+    if (!IsAtomTerm(t2)) {
+      Yap_Error(TYPE_ERROR_IN_CHARACTER, ARG1, "in input argument");
+    }
+  }
+  return rc;
 }
 
 static Int get0_line_codes(USES_REGS1) { /* '$get0'(Stream,-N) */
@@ -427,20 +472,11 @@ code with  _C_.
 
 */
 static Int get_byte(USES_REGS1) { /* '$get_byte'(Stream,-N) */
-  int sno = Yap_CheckStream(ARG1, Input_Stream_f, "get_byte/2");
-  Int status;
+  int sno = Yap_CheckBinaryStream(ARG1, Input_Stream_f, "get_byte/2");
   Term out;
 
   if (sno < 0)
     return (FALSE);
-  status = GLOBAL_Stream[sno].status;
-  if (!(status & Binary_Stream_f)
-      //&& strictISOFlag()
-      ) {
-    UNLOCK(GLOBAL_Stream[sno].streamlock);
-    Yap_Error(PERMISSION_ERROR_INPUT_STREAM, ARG1, "get_byte/2");
-    return (FALSE);
-  }
   out = MkIntTerm(GLOBAL_Stream[sno].stream_getc(sno));
   UNLOCK(GLOBAL_Stream[sno].streamlock);
   return Yap_unify_constant(ARG2, out);
@@ -769,16 +805,9 @@ static Int put_byte(USES_REGS1) { /* '$put_byte'(Stream,N)                 */
     Yap_Error(DOMAIN_ERROR_OUT_OF_RANGE, t2, "put_code/1");
     return FALSE;
   }
-  int sno = Yap_CheckStream(ARG1, Output_Stream_f, "put/2");
+  int sno = Yap_CheckBinaryStream(ARG1, Output_Stream_f, "put/2");
   if (sno < 0)
     return (FALSE);
-  if (!(GLOBAL_Stream[sno].status & Binary_Stream_f)
-      // && strictISOFlag()
-      ) {
-    UNLOCK(GLOBAL_Stream[sno].streamlock);
-    Yap_Error(PERMISSION_ERROR_OUTPUT_BINARY_STREAM, ARG1, NULL);
-    return false;
-  }
   GLOBAL_Stream[sno].stream_putc(sno, ch);
   /*
    * if (!(GLOBAL_Stream[sno].status & Null_Stream_f))
@@ -1135,9 +1164,9 @@ leaving the current stream position unaltered.
 
 */
 
-void Yap_flush(void) { CACHE_REGS(void)flush_all_streams(PASS_REGS1); }
+void Yap_flush(void) { CACHE_REGS(void) flush_all_streams(PASS_REGS1); }
 
-void Yap_FlushStreams(void) { CACHE_REGS(void)flush_all_streams(PASS_REGS1); }
+void Yap_FlushStreams(void) { CACHE_REGS(void) flush_all_streams(PASS_REGS1); }
 
 void Yap_InitCharsio(void) {
   Yap_InitCPred("get", 2, get, SafePredFlag | SyncPredFlag);
@@ -1188,5 +1217,5 @@ void Yap_InitCharsio(void) {
   Yap_InitCPred("skip", 2, skip, SafePredFlag | SyncPredFlag);
   Yap_InitCPred("skip1", 1, skip_1, SafePredFlag | SyncPredFlag);
   Yap_InitCPred("tab", 2, tab, SafePredFlag | SyncPredFlag);
-  Yap_InitCPred("tab1", 1, tab_1, SafePredFlag | SyncPredFlag);
+  Yap_InitCPred("tab", 1, tab_1, SafePredFlag | SyncPredFlag);
 }

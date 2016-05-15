@@ -78,7 +78,6 @@ and therefore he should try to avoid them whenever possible.
 
 :- use_system_module( '$_boot', ['$check_head_and_body'/4,
         '$check_if_reconsulted'/2,
-        '$handle_throw'/3,
         '$head_and_body'/3,
         '$inform_as_reconsulted'/2]).
 
@@ -205,9 +204,6 @@ clause(V0,Q,R) :-
 	'$do_error'(permission_error(access,private_procedure,Name/Arity),
 	      clause(M:P,Q,R)).
 
-'$init_preds' :-
-	once('$handle_throw'(_,_,_)),
-	fail.
 '$init_preds' :-
 	once('$do_static_clause'(_,_,_,_,_)),
 	fail.
@@ -656,6 +652,26 @@ system_predicate(P0) :-
                 system_predicate(P0))
     ).
 
+/** @pred  system_predicate( ?A, ?P )
+
+  Succeeds if _A_ is the name of the system predicate _P_. It can be used to test and to enumerate all system predicates.
+
+  YAP also supports the ISO standard built-in system_predicate/1, that
+  provides similar functionality and is compatible with most other Prolog
+  systems.
+  
+*/
+system_predicate(A, P0) :-
+	'$yap_strip_module'(P0, M, P),
+    (
+      nonvar(P)
+    ->
+     '$current_predicate'(A, M, P, system),
+     '$is_system_predicate'( P,  M)
+    ;
+     '$current_predicate'(A, M, P, system)
+    ).
+
 
 /**
   @pred  current_predicate( _F_) is iso
@@ -766,12 +782,12 @@ compile_predicates(Ps) :-
 	'$compile_predicate'(P, M, Call).
 '$compile_predicate'(Na/Ar, Mod, _Call) :-
 	functor(G, Na, Ar),
-	findall((G.B),clause(Mod:G,B),Cls),
+	findall([G|B],clause(Mod:G,B),Cls),
 	abolish(Mod:Na,Ar),
 	'$add_all'(Cls, Mod).
 
 '$add_all'([], _).
-'$add_all'((G.B).Cls, Mod) :-
+'$add_all'([[G|B]|Cls], Mod) :-
 	assert_static(Mod:(G:-B)),
 	'$add_all'(Cls, Mod).
 

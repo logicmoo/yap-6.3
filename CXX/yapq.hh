@@ -11,7 +11,7 @@
  * interface to a YAP Query;
  * uses an SWI-like status info internally.
  */
-class YAPQuery: public YAPPredicate, open_query_struct {
+class YAPQuery: public YAPPredicate, public open_query_struct {
   YAPListTerm vnames;
   YAPTerm goal;
   Term names;
@@ -43,7 +43,7 @@ public:
   inline YAPQuery(const char *s): YAPPredicate(s, t, names)
   {
     vnames = YAPListTerm( names );
-       
+
     initQuery( t );
   };
 
@@ -51,13 +51,16 @@ public:
   void setFlag(int flag) {q_flags |= flag; }
   /// reset flags for query execution, currently only for exception handling
   void resetFlag(int flag) {q_flags &= ~flag; }
-  ///`b  first query
+  /// first query
   ///
   /// actually implemented by calling the next();
   inline bool first() { return next(); }
   /// ask for the next solution of the current query
   /// same call for every solution
   bool next();
+  /// does this query have open choice-points?
+  /// or is it deterministic?
+  bool deterministic();
   /// represent the top-goal
   const char *text();
   /// remove alternatives in the current search space, and finish the current query
@@ -66,6 +69,15 @@ public:
   void close();
   /// query variables.
   YAPListTerm namedVars();
+  ///simple YAP Query;
+  /// just calls YAP and reports success or failure, Useful when we just
+  /// want things done, eg YAPCommand("load_files(library(lists), )")
+  inline bool command()
+  {
+    bool rc = next();
+    close();
+    return rc;
+  };
 };
 
 // Java support
@@ -125,6 +137,11 @@ public:
   const char *currentDir( ) {
       char dir[1024];
       std::string s = Yap_getcwd(dir, 1024-1);
+      return s.c_str();
+  }
+  /// report YAP version as a string
+  const char *version( ) {
+      std::string s = Yap_version();
       return s.c_str();
   }
 };

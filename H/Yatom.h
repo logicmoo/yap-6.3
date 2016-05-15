@@ -38,21 +38,7 @@ INLINE_ONLY inline EXTERN AtomEntry *RepAtom(Atom a) {
 
 INLINE_ONLY inline EXTERN Atom AbsAtom(AtomEntry *p);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  INLINE_ONLY inline EXTERN Atom AbsAtom(AtomEntry *p) { return (Atom)(p); }
+INLINE_ONLY inline EXTERN Atom AbsAtom(AtomEntry *p) { return (Atom)(p); }
 
 INLINE_ONLY inline EXTERN AtomEntry *RepAtom(Atom a);
 
@@ -251,31 +237,35 @@ INLINE_ONLY inline EXTERN Prop AbsWideAtomProp(WideAtomEntry *p) {
 
 #define WideAtomProperty ((PropFlags)0xfff8)
 
-INLINE_ONLY inline EXTERN PropFlags IsWideAtomProperty(int);
+INLINE_ONLY inline EXTERN bool IsWideAtomProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsWideAtomProperty(int flags) {
-  return (PropFlags)((flags == WideAtomProperty));
+INLINE_ONLY inline EXTERN bool IsWideAtomProperty(PropFlags flags) {
+  return (flags == WideAtomProperty);
 }
 
-INLINE_ONLY inline EXTERN int IsWideAtom(Atom);
+INLINE_ONLY inline EXTERN bool IsWideAtom(Atom);
 
-INLINE_ONLY inline EXTERN int IsWideAtom(Atom at) {
-  return RepAtom(at)->PropsOfAE &&
+INLINE_ONLY inline EXTERN bool IsWideAtom(Atom at) {
+  return RepAtom(at)->PropsOfAE != NIL &&
          IsWideAtomProperty(RepWideAtomProp(RepAtom(at)->PropsOfAE)->KindOfPE);
 }
 
-/*	Module property 						*/
+/**	Module property: low-level data used to manage modes.
+
+	Includes lists of pedicates, operators and other well-defIned properties.
+ */
 typedef struct mod_entry {
-  Prop NextOfPE;                /* used to chain properties            */
-  PropFlags KindOfPE;           /* kind of property                    */
-  struct pred_entry *PredForME; /* index in module table               */
-  Atom AtomOfME;                /* module's name	                */
-  Atom OwnerFile;               /* module's owner file	                */
+  Prop NextOfPE;                /** chain of atom properties            */
+  PropFlags KindOfPE;           /** kind of property                    */
+  struct pred_entry *PredForME; /** index in module table               */  
+  struct operator_entry *OpForME; /** index in operator table               */
+  Atom AtomOfME;                /** module's name	                */
+  Atom OwnerFile;               /** module's owner file	                */
 #if defined(YAPOR) || defined(THREADS)
-  rwlock_t ModRWLock; /* a read-write lock to protect the entry */
+  rwlock_t ModRWLock; /** a read-write lock to protect the entry */
 #endif
-  unsigned int flags;       /* Module local flags (from SWI compat) */
-  struct mod_entry *NextME; /* next module                         */
+  unsigned int flags;       /** Module local flags (from SWI compat) */
+  struct mod_entry *NextME; /** next module                         */
 } ModEntry;
 
 #if USE_OFFSETS_IN_PROPS
@@ -310,10 +300,10 @@ INLINE_ONLY inline EXTERN Prop AbsModProp(ModEntry *p) { return (Prop)(p); }
 
 #define ModProperty ((PropFlags)0xfffa)
 
-INLINE_ONLY inline EXTERN PropFlags IsModProperty(int);
+INLINE_ONLY inline EXTERN bool IsModProperty(int);
 
-INLINE_ONLY inline EXTERN PropFlags IsModProperty(int flags) {
-  return (PropFlags)((flags == ModProperty));
+INLINE_ONLY inline EXTERN bool IsModProperty(int flags) {
+  return flags == ModProperty;
 }
 
 /* Flags on module.  Most of these flags are copied to the read context
@@ -341,7 +331,7 @@ INLINE_ONLY inline EXTERN PropFlags IsModProperty(int flags) {
   (UNKNOWN_ERROR | UNKNOWN_WARNING | UNKNOWN_FAIL | UNKNOWN_FAST_FAIL |        \
    UNKNOWN_ABORT | UNKNOWN_HALT)
 
-Term Yap_getUnknownModule(ModEntry *m);
+ Term Yap_getUnknownModule(ModEntry *m);
 void Yap_setModuleFlags(ModEntry *n, ModEntry *o);
 
 /*	    operator property entry structure				*/
@@ -354,7 +344,8 @@ typedef struct operator_entry {
   Atom OpName;                   /* atom name		        */
   Term OpModule;                 /* module of predicate          */
   struct operator_entry *OpNext; /* next in list of operators  */
-  BITS16 Prefix, Infix, Posfix;  /* precedences                  */
+  struct operator_entry *NextForME; /* next in list of module operators  */
+  BITS16 Prefix, Infix, Posfix;  /**o precedences                  */
 } OpEntry;
 #if USE_OFFSETS_IN_PROPS
 
@@ -383,22 +374,23 @@ INLINE_ONLY inline EXTERN Prop AbsOpProp(OpEntry *p) { return (Prop)(p); }
 #endif
 #define OpProperty ((PropFlags)0xffff)
 
-INLINE_ONLY inline EXTERN PropFlags IsOpProperty(int);
+INLINE_ONLY inline EXTERN bool IsOpProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsOpProperty(int flags) {
-  return (PropFlags)((flags == OpProperty));
+INLINE_ONLY inline EXTERN bool IsOpProperty(PropFlags flags) {
+  return flags == OpProperty;
 }
 
 typedef enum { INFIX_OP = 0, POSFIX_OP = 1, PREFIX_OP = 2 } op_type;
 
-OpEntry *Yap_GetOpProp(Atom, op_type CACHE_TYPE);
+OpEntry *Yap_GetOpProp(Atom, op_type, Term CACHE_TYPE);
 
 int Yap_IsPrefixOp(Atom, int *, int *);
 int Yap_IsOp(Atom);
 int Yap_IsInfixOp(Atom, int *, int *, int *);
-int Yap_IsPosfixOp(Atom, int *, int *);
-
-/* defines related to operator specifications				*/
+ int Yap_IsPosfixOp(Atom, int *, int *);
+ bool Yap_dup_op(OpEntry  *op, ModEntry *she);
+ 
+ /* defines related to operator specifications				*/
 #define MaskPrio 0x0fff
 #define DcrlpFlag 0x1000
 #define DcrrpFlag 0x2000
@@ -502,10 +494,11 @@ don't forget to also add in qly.h
 */
 typedef uint64_t pred_flags_t;
 
+#define ProfiledPredFlag                                                       \
+  ((pred_flags_t)0x2000000000) /* pred is being profiled   */
 #define DiscontiguousPredFlag                                                  \
-  ((                                                                           \
-      pred_flags_t)0x1000000000) /* predicates whose clauses may be all-over   \
-                                    the place.. */
+  ((pred_flags_t)0x1000000000) /* predicates whose clauses may be all-over     \
+                                  the place.. */
 #define SysExportPredFlag ((pred_flags_t)0x800000000)
 /* reuse export list to prolog module. */
 #define NoTracePredFlag                                                        \
@@ -518,8 +511,9 @@ typedef uint64_t pred_flags_t;
   ((pred_flags_t)0x80000000) /* predicate is implemented as a mega-clause */
 #define ThreadLocalPredFlag ((pred_flags_t)0x40000000) /* local to a thread */
 #define MultiFileFlag ((pred_flags_t)0x20000000)       /* is multi-file */
-#define UserCPredFlag ((pred_flags_t)0x10000000) /* CPred defined by the user  \
-                                                    */
+#define UserCPredFlag                                                          \
+  ((pred_flags_t)0x10000000) /* CPred defined by the user                      \
+                                */
 #define LogUpdatePredFlag                                                      \
   ((pred_flags_t)0x08000000) /* dynamic predicate with log. upd. sem. */
 #define InUsePredFlag ((pred_flags_t)0x04000000)  /* count calls to pred */
@@ -533,9 +527,10 @@ typedef uint64_t pred_flags_t;
   ((pred_flags_t)0x00200000) /* predicate subject to a meta declaration */
 #define SyncPredFlag                                                           \
   ((pred_flags_t)0x00100000) /* has to synch before it can execute */
-#define NumberDBPredFlag ((pred_flags_t)0x00080000) /* entry for an atom key   \
-                                                       */
-#define AtomDBPredFlag ((pred_flags_t)0x00040000)   /* entry for a number key */
+#define NumberDBPredFlag                                                       \
+  ((pred_flags_t)0x00080000)                      /* entry for an atom key     \
+                                                     */
+#define AtomDBPredFlag ((pred_flags_t)0x00040000) /* entry for a number key */
 // #define GoalExPredFlag  ((pred_flags_t)0x00020000)	/// predicate that is
 // called by goal_expand */
 #define TestPredFlag ((pred_flags_t)0x00010000) /* is a test (optim. comit) */
@@ -551,10 +546,9 @@ typedef uint64_t pred_flags_t;
 #define TabledPredFlag ((pred_flags_t)0x00000040)   /* is tabled */
 #define SequentialPredFlag                                                     \
   ((pred_flags_t)0x00000020) /* may not create parallel choice points! */
-#define ProfiledPredFlag                                                       \
-  ((pred_flags_t)0x00000010)                     /* pred is being profiled   */
-#define BackCPredFlag ((pred_flags_t)0x00000008) /*	Myddas Imported pred       \
-                                                    */
+#define BackCPredFlag                                                          \
+  ((pred_flags_t)0x00000008) /*	Myddas Imported pred                           \
+                                */
 #define ModuleTransparentPredFlag                                              \
   ((pred_flags_t)0x00000004)                      /* ModuleTransparent pred  */
 #define SWIEnvPredFlag ((pred_flags_t)0x00000002) /* new SWI interface */
@@ -563,9 +557,11 @@ typedef uint64_t pred_flags_t;
 #define SystemPredFlags                                                        \
   (AsmPredFlag | StandardPredFlag | CPredFlag | BinaryPredFlag | BackCPredFlag)
 #define ForeignPredFlags                                                       \
-  (AsmPredFlag | SWIEnvPredFlag | CPredFlag | BinaryPredFlag | UDIPredFlag  | CArgsPredFlag | UserCPredFlag|SafePredFlag|BackCPredFlag)
+  (AsmPredFlag | SWIEnvPredFlag | CPredFlag | BinaryPredFlag | UDIPredFlag |   \
+   CArgsPredFlag | UserCPredFlag | SafePredFlag | BackCPredFlag)
 
-#define StatePredFlags (InUsePredFlag|CountPredFlag|SpiedPredFlag|IndexedPredFlag )
+#define StatePredFlags                                                         \
+  (InUsePredFlag | CountPredFlag | SpiedPredFlag | IndexedPredFlag)
 #define is_system(pe) (pe->PredFlags & SystemPredFlags)
 #define is_dynamic(pe) (pe->PredFlags & DynamicPredFlag)
 #define is_foreign(pe) (pe->PredFlags & ForeignPredFlags)
@@ -669,6 +665,22 @@ INLINE_ONLY inline EXTERN PropFlags IsPredProperty(int flags) {
   return (PropFlags)((flags == PEProp));
 }
 
+INLINE_ONLY inline EXTERN Atom NameOfPred(PredEntry *pe);
+
+INLINE_ONLY inline EXTERN Atom NameOfPred(PredEntry *pe) {
+  if (pe->ModuleOfPred == IDB_MODULE) {
+    return NULL;
+  } else if (pe->ArityOfPE == 0) {
+    return (Atom)pe->FunctorOfPred;
+  } else {
+    Functor f = pe->FunctorOfPred;
+    return NameOfFunctor(f);
+  }
+}
+
+ profile_data *
+   Yap_initProfiler(PredEntry *p);
+
 /* Flags for code or dbase entry */
 /* There are several flags for code and data base entries */
 typedef enum {
@@ -696,15 +708,20 @@ typedef enum {
 } dbentry_flags;
 
 /* predicate initialization */
-void Yap_InitCPred(const char *, UInt, CPredicate, pred_flags_t);
-void Yap_InitAsmPred(const char *, UInt, int, CPredicate, pred_flags_t);
-void Yap_InitCmpPred(const char *, UInt, CmpPredicate, pred_flags_t);
-void Yap_InitCPredBack(const char *, UInt, unsigned int, CPredicate, CPredicate,
-                       pred_flags_t);
-void Yap_InitCPredBackCut(const char *, UInt, unsigned int, CPredicate,
-                          CPredicate, CPredicate, pred_flags_t);
-void Yap_InitCPredBack_(const char *, UInt, unsigned int, CPredicate,
-                        CPredicate, CPredicate, pred_flags_t);
+void Yap_InitCPred(const char *name, arity_t arity, CPredicate f,
+                   pred_flags_t flags);
+void Yap_InitAsmPred(const char *name, arity_t arity, int code, CPredicate asmc,
+                     pred_flags_t flags);
+void Yap_InitCmpPred(const char *name, arity_t arity, CmpPredicate cmp,
+                     pred_flags_t flags);
+void Yap_InitCPredBack(const char *name, arity_t arity, arity_t extra,
+                       CPredicate call, CPredicate retry, pred_flags_t flags);
+void Yap_InitCPredBackCut(const char *name, arity_t arity, arity_t extra,
+                          CPredicate call, CPredicate retry, CPredicate cut,
+                          pred_flags_t flags);
+void Yap_InitCPredBack_(const char *name, arity_t arity, arity_t extra,
+                        CPredicate call, CPredicate retry, CPredicate cut,
+                        pred_flags_t flags);
 
 /* *********************** DBrefs **************************************/
 
@@ -1030,10 +1047,10 @@ static inline TranslationEntry *Yap_GetTranslationProp(Atom at, arity_t arity) {
   return p;
 }
 
-INLINE_ONLY inline EXTERN PropFlags IsTranslationProperty(int);
+INLINE_ONLY inline EXTERN bool IsTranslationProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsTranslationProperty(int flags) {
-  return (PropFlags)((flags == TranslationProperty));
+INLINE_ONLY inline EXTERN bool IsTranslationProperty(PropFlags flags) {
+  return flags == TranslationProperty;
 }
 
 /*** handle named mutexes */
@@ -1092,9 +1109,9 @@ static inline void *Yap_GetMutexFromProp(Atom at) {
   return p->Mutex;
 }
 
-INLINE_ONLY inline EXTERN PropFlags IsMutexProperty(int);
+INLINE_ONLY inline EXTERN bool IsMutexProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsMutexProperty(int flags) {
+INLINE_ONLY inline EXTERN bool IsMutexProperty(PropFlags flags) {
   return (PropFlags)((flags == MutexProperty));
 }
 
@@ -1210,16 +1227,16 @@ INLINE_ONLY inline EXTERN Prop AbsStaticArrayProp(StaticArrayEntry *p) {
 #endif
 #define ArrayProperty ((PropFlags)0xfff7)
 
-INLINE_ONLY inline EXTERN int ArrayIsDynamic(ArrayEntry *);
+INLINE_ONLY inline EXTERN bool ArrayIsDynamic(ArrayEntry *);
 
-INLINE_ONLY inline EXTERN int ArrayIsDynamic(ArrayEntry *are) {
-  return (int)(((are)->TypeOfAE & DYNAMIC_ARRAY));
+INLINE_ONLY inline EXTERN bool ArrayIsDynamic(ArrayEntry *are) {
+  return ((are)->TypeOfAE & DYNAMIC_ARRAY) != 0;
 }
 
-INLINE_ONLY inline EXTERN PropFlags IsArrayProperty(int);
+INLINE_ONLY inline EXTERN bool IsArrayProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsArrayProperty(int flags) {
-  return (PropFlags)((flags == ArrayProperty));
+INLINE_ONLY inline EXTERN bool IsArrayProperty(PropFlags flags) {
+  return flags == ArrayProperty;
 }
 
 /*	SWI Blob property 						*/
@@ -1261,28 +1278,29 @@ INLINE_ONLY inline EXTERN Prop AbsBlobProp(YAP_BlobPropEntry *p) {
 
 #define BlobProperty ((PropFlags)0xfffe)
 
-INLINE_ONLY inline EXTERN PropFlags IsBlobProperty(int);
+INLINE_ONLY inline EXTERN bool IsBlobProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsBlobProperty(int flags) {
-  return (PropFlags)((flags == BlobProperty));
+INLINE_ONLY inline EXTERN bool IsBlobProperty(PropFlags flags) {
+  return flags == BlobProperty;
 }
 
-INLINE_ONLY inline EXTERN int IsBlob(Atom);
+INLINE_ONLY inline EXTERN bool IsBlob(Atom);
 
-INLINE_ONLY inline EXTERN int IsBlob(Atom at) {
-  return RepAtom(at)->PropsOfAE &&
+INLINE_ONLY inline EXTERN bool IsBlob(Atom at) {
+  return RepAtom(at)->PropsOfAE != NIL &&
          IsBlobProperty(RepBlobProp(RepAtom(at)->PropsOfAE)->KindOfPE);
 }
 
-INLINE_ONLY inline EXTERN PropFlags IsValProperty(int);
+INLINE_ONLY inline EXTERN bool IsValProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsValProperty(int flags) {
-  return (PropFlags)((flags == ValProperty));
+INLINE_ONLY inline EXTERN bool IsValProperty(PropFlags flags) {
+  return flags == ValProperty;
 }
 
 /*		flag property entry structure				*/
 
-typedef bool (*flag_func)(Term);
+typedef Term (*flag_func)(Term);
+typedef bool (*flag_helper_func)(Term);
 
 typedef struct {
   Prop NextOfPE;      /* used to chain properties             */
@@ -1292,7 +1310,8 @@ typedef struct {
 #endif
   int FlagOfVE; /* (atomic) value associated with the atom */
   bool global, atomic, rw;
-  flag_func type, helper;
+  flag_func type;
+  flag_helper_func helper;
 } FlagEntry;
 #if USE_OFFSETS_IN_PROPS
 
@@ -1323,10 +1342,10 @@ INLINE_ONLY inline EXTERN Prop AbsFlagProp(FlagEntry *p) { return (Prop)(p); }
 #endif
 #define FlagProperty ((PropFlags)0xfff9)
 
-INLINE_ONLY inline EXTERN PropFlags IsFlagProperty(int);
+INLINE_ONLY inline EXTERN bool IsFlagProperty(PropFlags);
 
-INLINE_ONLY inline EXTERN PropFlags IsFlagProperty(int flags) {
-  return (PropFlags)((flags == FlagProperty));
+INLINE_ONLY inline EXTERN bool IsFlagProperty(PropFlags flags) {
+  return flags == FlagProperty;
 }
 
 /* Proto types */
@@ -1615,7 +1634,8 @@ INLINE_ONLY inline EXTERN const char *AtomName(Atom at) {
 INLINE_ONLY inline EXTERN const char *AtomTermName(Term t);
 
 /**
- * AtomTermName(Term t): get a string with the name of a term storing an Atom. Assumes 8
+ * AtomTermName(Term t): get a string with the name of a term storing an Atom.
+ *Assumes 8
  *bit representation.
  *
  * @param t the atom term
@@ -1627,5 +1647,23 @@ INLINE_ONLY inline EXTERN const char *AtomTermName(Term t);
 INLINE_ONLY inline EXTERN const char *AtomTermName(Term t) {
   return RepAtom(AtomOfTerm(t))->rep.uStrOfAE;
 }
+
+bool Yap_ResetException(int wid);
+bool Yap_HasException(void);
+Term Yap_GetException(void);
+Term Yap_PeekException(void);
+bool Yap_PutException(Term t);
+INLINE_ONLY inline EXTERN bool Yap_HasException(void) {
+  return LOCAL_BallTerm != NULL;
+}
+INLINE_ONLY inline EXTERN DBTerm *Yap_RefToException(void) {
+  DBTerm *dbt = LOCAL_BallTerm;
+  LOCAL_BallTerm = NULL;
+  return dbt;
+}
+INLINE_ONLY inline EXTERN void Yap_CopyException(DBTerm *dbt) {
+  LOCAL_BallTerm = dbt;
+}
+bool Yap_RaiseException(void);
 
 #endif

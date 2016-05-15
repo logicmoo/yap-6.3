@@ -215,6 +215,11 @@ order of dispatch.
 	'$execute0'((Goal,M:G),M0).
 
 % we may be creeping outside and coming back to system mode.
+'$start_creep'([_M|G], _) :-
+         nonvar(G),
+         G = '$$cut_by'(CP),
+         !,
+	'$$cut_by'(CP).
 '$start_creep'([M|G], _) :-
 	'$is_no_trace'(G, M), !,
 	(
@@ -330,7 +335,7 @@ alarm(Number, Goal, Left) :-
 	USecs is integer((Number-Secs)*1000000) mod 1000000,
 	on_signal(sig_alarm, _, Goal),
 	'$alarm'(Secs, USecs, Left, _).
-alarm([Interval|USecs], Goal, Left.LUSecs) :-
+alarm([Interval|USecs], Goal, [Left|LUSecs]) :-
 	on_signal(sig_alarm, _, Goal),
 	'$alarm'(Interval, USecs, Left, LUSecs).
 

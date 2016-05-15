@@ -1,12 +1,9 @@
 
   /* This file, rlocals.h, was generated automatically by "yap -L misc/buildlocalglobal"
-     please do not update, update misc/LOCALS instead */
+     please do not update, update H/LOCALS instead */
 
 
 static void RestoreWorker(int wid USES_REGS) {
-
-
-
 
 
 
@@ -77,7 +74,13 @@ static void RestoreWorker(int wid USES_REGS) {
 
 
 
+
+
   RestoreBallTerm(wid);
+
+
+
+
 
 
 
@@ -257,6 +260,7 @@ static void RestoreWorker(int wid USES_REGS) {
 
 
 #endif
+
 
 
 

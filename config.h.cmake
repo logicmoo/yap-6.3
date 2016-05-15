@@ -1904,7 +1904,7 @@ significant byte first (like Motorola and SPARC, unlike Intel). */
 #endif
 
 #ifndef YAP_PL_SRCDIR
-#define YAP_PL_SRCDIR "${PROJECT_SOURCE_DIR}/pl}"
+#define YAP_PL_SRCDIR "${PROJECT_SOURCE_DIR}/pl"
 #endif
 
 #ifndef YAP_SHAREDIR
@@ -1996,7 +1996,7 @@ calls it, or to nothing if 'inline' is not supported under any name.  */
 #endif
 
 #ifndef MAXPATHLEN
-#ifdef PATH_MAX
+#if defined(PATH_MAX)
 #define MAXPATHLEN PATH_MAX
 #else
 #define MAXPATHLEN 1024

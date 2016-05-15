@@ -1,6 +1,6 @@
 
   /* This file, dglobals.h, was generated automatically by "yap -L misc/buildlocalglobal"
-     please do not update, update misc/GLOBALS instead */
+     please do not update, update H/GLOBALS instead */
 
 
 
@@ -141,4 +141,8 @@
 #define GLOBAL_CharConversionTable2 Yap_global->CharConversionTable2_
 
 #define GLOBAL_MaxPriority Yap_global->MaxPriority_
+
+#define GLOBAL_FileAliases Yap_global->FileAliases_
+#define GLOBAL_NOfFileAliases Yap_global->NOfFileAliases_
+#define GLOBAL_SzOfFileAliases Yap_global->SzOfFileAliases_
 

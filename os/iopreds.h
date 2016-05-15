@@ -18,9 +18,9 @@ static char SccsId[] = "%W% %G%";
 #define HAVE_SOCKET 1
 #endif
 
-#include <stdlib.h>
-#include "Yap.h"
 #include "Atoms.h"
+#include "Yap.h"
+#include <stdlib.h>
 
 /*
  * This file defines main data-structure for stream management,
@@ -44,6 +44,10 @@ extern int Yap_CheckStream__(const char *, const char *, int, Term, int,
 #define Yap_CheckTextStream(arg, kind, msg)                                    \
   Yap_CheckTextStream__(__FILE__, __FUNCTION__, __LINE__, arg, kind, msg)
 extern int Yap_CheckTextStream__(const char *, const char *, int, Term, int,
+                                 const char *);
+#define Yap_CheckBinaryStream(arg, kind, msg)                                    \
+  Yap_CheckBinaryStream__(__FILE__, __FUNCTION__, __LINE__, arg, kind, msg)
+extern int Yap_CheckBinaryStream__(const char *, const char *, int, Term, int,
                                  const char *);
 
 extern bool Yap_initStream(int sno, FILE *fd, const char *name, Term file_name,
@@ -152,7 +156,7 @@ typedef struct read_data_t {
 } read_data, *ReadData;
 
 Term Yap_read_term(int inp_stream, Term opts, int nargs);
-Term Yap_Parse(UInt prio);
+Term Yap_Parse(UInt prio, encoding_t enc, Term cmod);
 
 void init_read_data(ReadData _PL_rd, struct stream_desc *s);
 
@@ -163,6 +167,32 @@ typedef int (*GetsFunc)(int, UInt, char *);
 #endif
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
+
+#if __APPLE__
+#include "fmemopen.h"
+#define HAVE_FMEMOPEN 1
+#define HAVE_OPEN_MEMSTREAM 1
+FILE *open_memstream(char **buf, size_t *len);
+#endif
+
+#if __ANDROID__
+#undef HAVE_FMEMOPEN
+#undef HAVE_OPEN_MEMSTREAM
+#endif
+
+#if HAVE_FMEMOPEN
+#define MAY_READ 1
+#endif
+
+#if HAVE_OPEN_MEMSTREAM
+#define MAY_READ 1
+#define MAY_WRITE 1
+#endif
+
+#if _WIN32
+#undef MAY_WRITE
+#undef MAY_READ
 #endif
 
 typedef struct mem_desc {
@@ -203,17 +233,20 @@ typedef struct stream_desc {
   } u;
   Int charcount, linecount, linepos;
   stream_flags_t status;
-  int och;
 #if defined(YAPOR) || defined(THREADS)
   lockvar streamlock; /* protect stream access */
 #endif
+  int (*stream_putc)(
+      int, int); /** function the stream uses for writing a single octet */
+  int (*stream_wputc)(
+      int, wchar_t); /** function the stream uses for writing a character */
+  int (*stream_getc)(int); /** function the stream uses for reading an octet. */
+  int (*stream_wgetc)(
+      int); /** function the stream uses for reading a character. */
 
-  int (*stream_putc)(int, int); /** function the stream uses for writing a single octet */
-  int (*stream_wputc)(int, int); /** function the stream uses for writing a character */
-  int (*stream_getc)(int);      /** function the stream uses for reading an octet. */
-  int (*stream_wgetc)(int);  /** function the stream uses for reading a character. */
-
-  int (*stream_wgetc_for_read)(int);  /* function the stream uses for parser. It may be different       from above if the ISO  character conversion is on */ 
+  int (*stream_wgetc_for_read)(
+      int); /* function the stream uses for parser. It may be different
+               from above if the ISO  character conversion is on */
   encoding_t encoding; /** current encoding for stream */
 
 } StreamDesc;
@@ -246,7 +279,7 @@ static inline StreamDesc *Yap_GetStreamHandle(Term t) {
 void Yap_InitStdStreams(void);
 Term Yap_StreamPosition(int);
 
-static inline int GetCurInpPos(StreamDesc *inp_stream) {
+static inline Int GetCurInpPos(StreamDesc *inp_stream) {
   return (inp_stream->linecount);
 }
 
@@ -308,9 +341,6 @@ Term Yap_syntax_error(TokEntry *tokptr, int sno);
 
 int console_post_process_read_char(int, StreamDesc *);
 int console_post_process_eof(StreamDesc *);
-
-int post_process_read_char(int, StreamDesc *);
-int post_process_eof(StreamDesc *);
 int post_process_read_wchar(int, size_t, StreamDesc *);
 int post_process_weof(StreamDesc *);
 
@@ -426,4 +456,7 @@ extern FILE *Yap_stdout;
 extern FILE *Yap_stderr;
 
 char *Yap_MemExportStreamPtr(int sno);
+
+bool Yap_Exists(const char *f);
+
 #endif

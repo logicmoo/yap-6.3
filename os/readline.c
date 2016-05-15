@@ -25,8 +25,8 @@ static char SccsId[] = "%W% %G%";
  */
 
 #include "Yap.h"
-#include "Yatom.h"
 #include "YapHeap.h"
+#include "Yatom.h"
 #include "yapio.h"
 #include <stdlib.h>
 #if HAVE_UNISTD_H
@@ -53,8 +53,8 @@ static char SccsId[] = "%W% %G%";
 
 #if USE_READLINE
 
-#include <readline/readline.h>
 #include <readline/history.h>
+#include <readline/readline.h>
 
 static int ReadlineGetc(int);
 static int ReadlinePutc(int, int);
@@ -129,17 +129,120 @@ static char *atom_generator(const char *prefix, int state) {
   return s;
 }
 
+typedef struct chain {
+  struct chain *next;
+  char data[2];
+} chain_t;
+
+static char *predicate_enumerate(const char *prefix, int state) {
+  CACHE_REGS
+  PredEntry *p;
+  ModEntry m0, *mod;
+  AtomEntry *ap;
+
+  if (!state) {
+    p = NULL;
+    mod = &m0;
+    m0.NextME = CurrentModules;
+    if (mod->AtomOfME == AtomIDB)
+      mod = mod->NextME;
+  } else {
+    Term cmod;
+    p = LOCAL_SearchPreds;
+    cmod = (p->ModuleOfPred != PROLOG_MODULE ? p->ModuleOfPred : TermProlog);
+    mod = Yap_GetModuleEntry(cmod);
+  }
+  while (mod) {
+    // move to next o;
+    if (p)
+      p = p->NextPredOfModule;
+    while (p == NULL) {
+      mod = mod->NextME;
+      if (!mod) {
+        // done
+        LOCAL_SearchPreds = NULL;
+        return NULL;
+      }
+      if (mod->AtomOfME == AtomIDB)
+        mod = mod->NextME;
+      p = mod->PredForME;
+    }
+    char *c = RepAtom(ap = NameOfPred(p))->StrOfAE;
+    if (strlen(c) > strlen(prefix) && strstr(c, prefix) == c &&
+        !(p->PredFlags & HiddenPredFlag)) {
+      LOCAL_SearchPreds = p;
+      arity_t ar = p->ArityOfPE;
+      int l, r;
+      if (Yap_IsPrefixOp(AbsAtom(ap), &l, &r) && ar == 1) {
+        return c;
+      }
+      strncpy(LOCAL_FileNameBuf, c, YAP_FILENAME_MAX);
+      strncat(LOCAL_FileNameBuf, "(", YAP_FILENAME_MAX);
+      return LOCAL_FileNameBuf;
+    }
+  }
+  LOCAL_SearchPreds = NULL;
+  return NULL;
+}
+
+static char *predicate_generator(const char *prefix, int state) {
+  char *s = predicate_enumerate(prefix, state);
+
+  if (s) {
+    char *copy = malloc(1 + strlen(s));
+
+    if (copy) /* else pretend no completion */
+      strcpy(copy, s);
+    s = copy;
+  }
+
+  return s;
+}
+
 static char **prolog_completion(const char *text, int start, int end) {
   char **matches = NULL;
 
-  if ((start == 1 && rl_line_buffer[0] == '[') || /* [file */
-      (start == 2 && strncmp(rl_line_buffer, "['", 2)))
-    matches = rl_completion_matches((char *)text, /* for pre-4.2 */
-                                    rl_filename_completion_function);
-  else
-    matches = rl_completion_matches((char *)text, atom_generator);
+  if (start == 0 && isalpha(text[0])) {
+    int i = 0;
+    while (i < end) {
+      if (isalnum(text[i]) || text[i] == '_')
+        i++;
+      else
+        break;
+    }
+    if (i == end) {
+      matches = rl_completion_matches((char *)text, predicate_generator);
+    }
+    return matches;
+  } else if (start == 0) {
+    int i = 0;
+    const char *p;
+    while (isblank(text[i++]) && i <= end)
+      ;
+    p = text + i;
 
-  return matches;
+    if ((strstr(p, "[") == p) || (strstr(p, "compile(") == p) ||
+        (strstr(p, "consult(") == p) || (strstr(p, "load_files(") == p) ||
+        (strstr(p, "reconsult(") == p) || (strstr(p, "use_module(") == p) ||
+        (strstr(p, "cd(") == p))
+      matches = rl_completion_matches((char *)text, /* for pre-4.2 */
+                                      rl_filename_completion_function);
+    return matches;
+  }
+  int i = end, ch = '\0';
+  while (i > start) {
+    ch = text[--i];
+    if (ch == '\'')
+      return rl_completion_matches((char *)text, /* for pre-4.2 */
+                                   rl_filename_completion_function);
+    if (isalnum(text[i]))
+      continue;
+    break;
+  }
+  if (islower(ch))
+    return rl_completion_matches((char *)text, atom_generator);
+
+  return NULL;
 }
 
 void Yap_ReadlineFlush(int sno) {
@@ -200,17 +303,17 @@ bool Yap_InitReadline(Term enable) {
   GLOBAL_Stream[StdInStream].u.irl.buf = NULL;
   GLOBAL_Stream[StdInStream].u.irl.ptr = NULL;
   GLOBAL_Stream[StdInStream].status |= Readline_Stream_f;
-#if _MSC_VER || defined(__MINGW32__)
+#if _WIN32
   rl_instream = stdin;
 #endif
   rl_outstream = stderr;
   using_history();
-  const char *s = Yap_AbsoluteFile("~/.YAP.history", true);
-  if (!read_history(s)) {
-    FILE *f = fopen(s, "w");
+  const char *s = Yap_AbsoluteFile("~/.YAP.history", NULL, true);
+  history_file = s;
+  if (read_history(s) != 0) {
+    FILE *f = fopen(s, "a");
     if (f) {
       fclose(f);
-      read_history(s);
     }
   }
   rl_readline_name = "Prolog";
@@ -260,14 +363,14 @@ static bool getLine(int inp, int out) {
     return false;
   if (myrl_line[0] != '\0' && myrl_line[1] != '\0') {
     add_history((char *)myrl_line);
-    append_history(1, history_file);
+    fflush(NULL);
   }
   s->u.irl.ptr = s->u.irl.buf = myrl_line;
   return true;
 }
 
 static int ReadlinePutc(int sno, int ch) {
-    CACHE_REGS
+  CACHE_REGS
   StreamDesc *s = &GLOBAL_Stream[sno];
 #if MAC || _MSC_VER || defined(__MINGW32__)
   if (ch == 10) {
@@ -392,3 +495,9 @@ bool Yap_InitReadline(Term enable) {
 
 void Yap_InitReadlinePreds(void) {}
 #endif
+
+void Yap_CloseReadline(void) {
+#if USE_READLINE
+  write_history(history_file);
+#endif
+}

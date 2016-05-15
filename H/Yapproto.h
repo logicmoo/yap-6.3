@@ -19,7 +19,6 @@
 #define X_API
 #endif
 
-
 /* prototype file for Yap */
 
 /* absmi.c */
@@ -45,8 +44,8 @@ Prop Yap_NewPredPropByFunctor(struct FunctorEntryStruct *, Term);
 Prop Yap_NewPredPropByAtom(struct AtomEntryStruct *, Term);
 Prop Yap_PredPropByFunctorNonThreadLocal(struct FunctorEntryStruct *, Term);
 Prop Yap_PredPropByAtomNonThreadLocal(struct AtomEntryStruct *, Term);
-Functor Yap_UnlockedMkFunctor(struct AtomEntryStruct *, unsigned int);
-Functor Yap_MkFunctor(Atom, unsigned int);
+Functor Yap_UnlockedMkFunctor(struct AtomEntryStruct *, arity_t);
+Functor Yap_MkFunctor(Atom, arity_t);
 void Yap_MkFunctorWithAddress(Atom, unsigned int, FunctorEntry *);
 void Yap_PutValue(Atom, Term);
 void Yap_ReleaseAtom(Atom);
@@ -183,8 +182,10 @@ void Yap_RestartYap(int);
 void Yap_exit(int);
 bool Yap_Warning(const char *s, ...);
 bool Yap_PrintWarning(Term t);
-bool Yap_HandleError__(const char *file, const char *function, int lineno, const char *s, ...);
-#define Yap_HandleError(...) Yap_HandleError__(__FILE__, __FUNCTION__, __LINE__, __VA_ARGS__) 
+bool Yap_HandleError__(const char *file, const char *function, int lineno,
+                       const char *s, ...);
+#define Yap_HandleError(...)                                                   \
+  Yap_HandleError__(__FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
 int Yap_SWIHandleError(const char *, ...);
 void Yap_InitErrorPreds(void);
 
@@ -195,16 +196,15 @@ void Yap_InitEval(void);
 void Yap_fail_all(choiceptr bb USES_REGS);
 Term Yap_ExecuteCallMetaCall(Term);
 void Yap_InitExecFs(void);
-Int Yap_JumpToEnv(Term);
-Term Yap_RunTopGoal(Term);
-void Yap_ResetExceptionTerm(int);
-Int Yap_execute_goal(Term, int, Term, bool);
-Int Yap_exec_absmi(bool, yap_reset_t);
+bool Yap_JumpToEnv(Term);
+Term Yap_RunTopGoal(Term, bool);
+bool Yap_execute_goal(Term, int, Term, bool);
+bool Yap_exec_absmi(bool, yap_reset_t);
 void Yap_trust_last(void);
-Term Yap_GetException(void);
+
 void Yap_PrepGoal(UInt, CELL *, choiceptr USES_REGS);
-int Yap_execute_pred(struct pred_entry *ppe, CELL *pt,
-                     bool pass_exception USES_REGS);
+bool Yap_execute_pred(struct pred_entry *ppe, CELL *pt,
+                      bool pass_exception USES_REGS);
 int Yap_dogc(int extra_args, Term *tp USES_REGS);
 Term Yap_PredicateIndicator(Term t, Term mod);
 bool Yap_Execute(Term t USES_REGS);
@@ -274,6 +274,7 @@ void Yap_InitWorkspace(UInt, UInt, UInt, UInt, UInt, int, int, int);
 bool Yap_AddCallToFli(struct pred_entry *pe, CPredicate call);
 bool Yap_AddRetryToFli(struct pred_entry *pe, CPredicate re);
 bool Yap_AddCutToFli(struct pred_entry *pe, CPredicate cut);
+const char *Yap_version(void);
 
 #ifdef YAPOR
 void Yap_init_yapor_workers(void);
@@ -302,8 +303,9 @@ extern void Yap_DebugErrorPutc(int n);
 extern void Yap_DebugErrorPuts(const char *s);
 extern void Yap_DebugWriteIndicator(struct pred_entry *ap);
 void Yap_PlWriteToStream(Term, int, int);
+void Yap_CloseReadline(void);
 /* depth_lim.c */
-bool   Yap_InitReadline(Term t);
+bool Yap_InitReadline(Term t);
 void Yap_InitItDeepenPreds(void);
 struct AliasDescS *Yap_InitStandardAliases(void);
 
@@ -353,16 +355,16 @@ void Yap_InitReadUtil(void);
 
 /* qly.c */
 void Yap_InitQLY(void);
-int Yap_Restore(const char *, char *);
+int Yap_Restore(const char *, const char *);
 void Yap_InitQLYR(void);
 
 /* range.c */
 void Yap_InitRange(void);
 
 /* save.c */
-int Yap_SavedInfo(const char *, char *, CELL *, CELL *, CELL *);
+int Yap_SavedInfo(const char *, const char *, CELL *, CELL *, CELL *);
 int Yap_SavedStateRestore(char *, char *);
-FILE *Yap_OpenRestore(const char *, char *);
+FILE *Yap_OpenRestore(const char *, const char *);
 void Yap_InitSavePreds(void);
 
 /* scanner.c */
@@ -370,6 +372,8 @@ void Yap_InitSavePreds(void);
 /* signals.c */
 void Yap_InitSignalCPreds(void);
 void *Yap_InitSignals(int wid);
+bool Yap_DisableInterrupts(int wid);
+bool Yap_EnableInterrupts(int wid);
 
 void Yap_InitSockets(void);
 
@@ -392,7 +396,7 @@ void Yap_show_statistics(void);
 int Yap_IsOpMaxPrio(Atom);
 
 /* sysbits.c */
-void Yap_InitPageSize(void);
+size_t Yap_InitPageSize(void);
 bool Yap_set_fpu_exceptions(Term);
 UInt Yap_cputime(void);
 uint64_t Yap_walltime(void);
@@ -403,6 +407,7 @@ int Yap_signal_index(const char *);
 void Yap_SetTextFile(char *);
 #endif
 #if __ANDROID__
+#include <android/asset_manager.h>
 extern AAssetManager *Yap_assetManager;
 
 extern void *Yap_openAssetFile(const char *path);
@@ -415,22 +420,18 @@ void Yap_InitSysbits(int wid);
 void Yap_InitSysPreds(void);
 void Yap_InitcTime(int);
 void Yap_InitTime(int);
-const char *Yap_locateFile(const char *, char *, bool);
 double Yap_random(void);
 #ifdef _WIN32
 char *Yap_RegistryGetString(char *);
 void Yap_WinError(char *);
 #endif
-const char *Yap_TextTermToText(Term t, char *buf, size_t len);
-Term Yap_MkTextTerm(const char *s, Term tguide );
 
-typedef enum { YAP_STD, YAP_SAVED_STATE, YAP_OBJ, YAP_PL, YAP_QLY } file_type_t;
-
-const char *Yap_AbsoluteFile(const char *spec, bool ok);
-const char *Yap_AbsoluteFileInBuffer(const char *spec, char *outp, size_t sz, bool ok);
-const char *Yap_findFile(const char *isource, const char *idef, const char *root,
-                      char *result, bool access, file_type_t ftype,
-                      bool expand_root, bool in_lib);
+const char *Yap_AbsoluteFile(const char *spec, char *obuf, bool ok);
+const char *Yap_AbsoluteFileInBuffer(const char *spec, char *outp, size_t sz,
+                                     bool ok);
+const char *Yap_findFile(const char *isource, const char *idef,
+                         const char *root, char *result, bool access,
+                         YAP_file_type_t ftype, bool expand_root, bool in_lib);
 /* threads.c */
 void Yap_InitThreadPreds(void);
 void Yap_InitFirstWorkerThreadHandle(void);

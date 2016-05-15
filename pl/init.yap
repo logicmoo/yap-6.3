@@ -106,12 +106,11 @@ otherwise.
 	'$continue_static_clause'(A,B,C,D,E).
 '$do_static_clause'(_,_,_,_,_).
 
-:- '$handle_throw'(_,_,_), !.
+:- bootstrap('arith.yap').
 
 :- '$all_current_modules'(M), yap_flag(M:unknown, error) ; true.
 
 
-:- bootstrap('arith.yap').
 
 :- compile_expressions.
 
@@ -133,16 +132,16 @@ otherwise.
 
 :- dynamic prolog:'$parent_module'/2.
 
-%:- start_low_level_trace.
+
+
 :- [
     'directives.yap',
 	 'preds.yap',
 	 'modules.yap'
    ].
-%:- stop_low_level_trace.
-
 
 :- use_module('error.yap').
+
 
 :- [
     'errors.yap',
@@ -202,6 +201,8 @@ version(yap,[6,3]).
 
 :- 	['undefined.yap'].
 
+%:- start_low_level_trace.
+
 :- multifile user:portray_message/2.
 
 :- dynamic user:portray_message/2.
@@ -224,7 +225,7 @@ sub-goal  _NG_ will replace  _G_ and will be processed in the same
 :- dynamic user:goal_expansion/3.
 
 :- multifile user:goal_expansion/2.
-        
+
 :- dynamic user:goal_expansion/2.
 
 :- multifile system:goal_expansion/2.

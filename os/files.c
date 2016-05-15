@@ -62,7 +62,7 @@ loop:
       return false;
     }
     char *pts = strrchr(f, '/');
-#if WIN32_ssss
+#if WIN32_
     char *pts1 = strrchr(f, '\\');
     if (pts11 > pts)
       pts = pts1;
@@ -171,26 +171,26 @@ loop:
 
 static Int access_path(USES_REGS1) {
   Term tname = Deref(ARG1);
-  char *file_name;
 
   if (IsVarTerm(tname)) {
     Yap_Error(INSTANTIATION_ERROR, tname, "access");
-    return FALSE;
+    return false;
   } else if (!IsAtomTerm(tname)) {
     Yap_Error(TYPE_ERROR_ATOM, tname, "access");
-    return FALSE;
+    return false;
   } else {
 #if HAVE_STAT
     struct SYSTEM_STAT ss;
+    char *file_name;
 
     file_name = RepAtom(AtomOfTerm(tname))->StrOfAE;
     if (SYSTEM_STAT(file_name, &ss) != 0) {
       /* ignore errors while checking a file */
-      return FALSE;
+      return true;
     }
-    return TRUE;
+    return true;
 #else
-    return FALSE;
+    return false;
 #endif
   }
 }
@@ -270,10 +270,14 @@ static Int time_file(USES_REGS1) {
     HANDLE hdl;
     Term rc;
 
-    if ((hdl = CreateFile(n, 0, 0, NULL, OPEN_EXISTING, 0, 0)) == 0)
+    if ((hdl = CreateFile(n, 0, 0, NULL, OPEN_EXISTING, 0, 0)) == 0) {
+      Yap_WinError("in time_file");
       return false;
-    if (GetFileTime(hdl, NULL, NULL, &ft))
+    }
+    if (GetFileTime(hdl, NULL, NULL, &ft) == 0) {
+      Yap_WinError("in time_file");
       return false;
+    }
     // Convert the last-write time to local time.
     // FileTimeToSystemTime(&ftWrite, &stUTC);
     // SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal);
@@ -290,7 +294,7 @@ static Int time_file(USES_REGS1) {
 
     snprintf(s, 64, "%I64d", (long long int)n);
     mpz_init_set_str(&rop, s, 10);
-   rc = Yap_MkBigNumTerm((void *)&rop) PASS_REGS);
+   rc = Yap_MkBigIntTerm((void *)&rop) PASS_REGS);
 #else
     rc = MkIntegerTerm(ft.dwHighDateTime);
 #endif
@@ -467,7 +471,7 @@ static Int is_absolute_file_name(USES_REGS1) { /* file_base_name(Stream,N) */
     Yap_Error(INSTANTIATION_ERROR, t, "file_base_name/2");
     return FALSE;
   }
-  const char *buf = Yap_TextTermToText(t, NULL, 0);
+  const char *buf = Yap_TextTermToText(t, NULL, 0, LOCAL_encoding);
   if (buf) {
     return Yap_IsAbsolutePath(buf);
   } else {
@@ -548,9 +552,11 @@ static Int file_directory_name(USES_REGS1) { /* file_directory_name(Stream,N) */
 #else
     char s[YAP_FILENAME_MAX + 1];
     Int i = strlen(c);
-    while (i && !Yap_dir_separator((int)c[--i]))
-      ;
-    strncpy(s, c, i);
+    strncpy(s, c, YAP_FILENAME_MAX);
+    while (--i) {
+      if (Yap_dir_separator((int)c[i]))
+	break;
+    }
     s[i] = '\0';
 #endif
     return Yap_unify(ARG2, MkAtomTerm(Yap_LookupAtom(s)));

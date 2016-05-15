@@ -314,6 +314,8 @@ be lost.
 	!, '$$cut_by'(CP).
 '$do_spy'('$cut_by'(M), _, _, _) :-
 	!, '$$cut_by'(M).
+'$do_spy'('$$cut_by'(M), _, _, _) :-
+	!, '$$cut_by'(M).
 '$do_spy'(true, _, _, _) :- !.
 %'$do_spy'(fail, _, _, _) :- !, fail.
 '$do_spy'(M:G, _, CP, CalledFromDebugger) :- !,
@@ -531,19 +533,22 @@ be lost.
 	G = G1
 	),
 	'$execute_nonstop'(G1,M).
-'$spycall'(G, M, _, _) :-
+'$spycall'(G, M, CalledFromDebugger, InRedo) :-
 	 '$is_metapredicate'(G, M),
 	 '$debugger_expand_meta_call'(M:G, [], G10),
 	 G10 \== M:G,
- 	 CP is '$last_choice_pt',
+	 !,
 	 '$debugger_input',
 	 G10 = NM:NG,
-	'$do_spy'(NG, NM, CP, spy).
-'$spycall'(G, M, _, _) :-
+	 '$spycall_f'(NG, NM, CalledFromDebugger, InRedo).
+'$spycall'(G, M, CalledFromDebugger, InRedo) :-
+	 '$spycall_f'(G, M, CalledFromDebugger, InRedo).
+
+'$spycall_f'(G, M, _, _) :-
 	( '$is_system_predicate'(G,M) ; '$tabled_predicate'(G,M) ),
 	!,
 	'$continue_debugging_goal'(yes, '$execute_nonstop'(G,M)).
-'$spycall'(G, M, CalledFromDebugger, InRedo) :-
+'$spycall_f'(G, M, CalledFromDebugger, InRedo) :-
 	'$spycall_expanded'(G, M, CalledFromDebugger, InRedo).
 
 '$spycall_expanded'(G, M, CalledFromDebugger, InRedo) :-
@@ -567,7 +572,7 @@ be lost.
 	*->
 	'$stop_creeping'(_),
     (
-	'$continue_debugging_goal'(yes, '$execute_clause'(G, M, R, CP))
+	'$creep'('$execute_clause'(G, M, R, CP), M)
      ;
      InRedo = true
     )
@@ -1033,20 +1038,22 @@ be lost.
 	'$debugger_skip_loop_spy2'(CPs,CPs1).
 '$debugger_skip_loop_spy2'(CPs,CPs).
 
-'$debugger_expand_meta_call'( G, M, G1 ) :-
-    '$expand_meta_call'( G, M, G0 ),
+'$debugger_expand_meta_call'( G, VL, M:G2 ) :-
+    '$expand_meta_call'( G, VL, G0 ),
+    '$yap_strip_module'( G0, M, G1 ),
     (
 	'$is_system_predicate'(G0,M) ->
-	    '$debugger_process_meta_arguments'(G0, M, G1)
+	    '$debugger_process_meta_arguments'(G1, M, G2)
      ;
-     G1 = G0
+     G1 = G2
     ).
 
 '$debugger_process_meta_arguments'(G, M, G1) :-
-	functor(G,F,N),
-	'$meta_predicate'(F,M,N,D), !, % we're in an argument
+	'$yap_strip_module'( M:G, MM, GM ),
+	functor(GM,F,N),
+	'$meta_predicate'(F,MM,N,D), !, % we're in an argument
 	D =.. [F|BMs],
-	G =.. [F|BGs],
+	GM =.. [F|BGs],
 	'$ldebugger_process_meta_args'(BGs, M, BMs, BG1s),
 	G1 =.. [F|BG1s].
 '$debugger_process_meta_arguments'(G, _M, G).
@@ -1055,10 +1062,10 @@ be lost.
 '$ldebugger_process_meta_args'([G|BGs], M, [N|BMs], ['$spy'([M1|G1])|BG1s]) :-
     number(N),
     N >= 0,
+	'$yap_strip_module'( M:G, M1, G1 ),
+	functor(G1, Na, _),
+	Na \= '$trace_call',
 	!,
-	strip_module( M:G, M1, G1 ),
-	functor(G1, N, _),
-	N \= '$trace_call',
 	'$ldebugger_process_meta_args'(BGs, M, BMs, BG1s).
 '$ldebugger_process_meta_args'([G|BGs], M, [_|BMs], [G|BG1s]) :-
 	'$ldebugger_process_meta_args'(BGs, M, BMs, BG1s).

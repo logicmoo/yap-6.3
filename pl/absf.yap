@@ -10,13 +10,10 @@
 
 /**
 
-
-
  @file absf.yap
  @author L.Damas, V.S.Costa
 
 */
-
 :- system_module( absf, [absolute_file_name/2,
         absolute_file_name/3,
         add_to_path/1,
@@ -26,9 +23,8 @@
         '$system_library_directories'/2]).
 
 /**
-
-@defgroup AbsoluteFileName File Name Resolution
-    @ingroup builtins
+ * @defgroup AbsoluteFileName File Name Resolution
+ * @ingroup builtins
 
  Support for file name resolution through absolute_file_name/3 and
   friends. These utility built-ins describe a list of directories that
@@ -38,7 +34,7 @@
 
 @{
 
-*/
+ */
 
 :- use_system_module( '$_boot', ['$system_catch'/4]).
 
@@ -143,12 +139,12 @@ swapped, thus the call
   is valid as well.
 */
 
-
 absolute_file_name(File,TrueFileName,Opts) :-
     ( var(TrueFileName) ->
-	  true ;
+	    true ;
       atom(TrueFileName), TrueFileName \= []
-    ), !,
+    ),
+    !,
     absolute_file_name(File,Opts,TrueFileName).
 absolute_file_name(File,Opts,TrueFileName) :-
     '$absolute_file_name'(File,Opts,TrueFileName,absolute_file_name(File,Opts,TrueFileName)).
@@ -158,7 +154,8 @@ absolute_file_name(File,Opts,TrueFileName) :-
 
   Converts the given file specification into an absolute path, using default options. See absolute_file_name/3 for details on the options.
 */
-absolute_file_name(V,Out) :- var(V), !,	% absolute_file_name needs commenting.
+absolute_file_name(V,Out) :- var(V),
+ !,	% absolute_file_name needs commenting.
 	'$do_error'(instantiation_error, absolute_file_name(V, Out)).
 absolute_file_name(user,user) :- !.
 absolute_file_name(File0,File) :-
@@ -172,7 +169,8 @@ absolute_file_name(File0,File) :-
                               expand(true)],F,G).
 
 '$absolute_file_name'(File,LOpts,TrueFileName, G) :-
-%   must_be_of_type( atom, File ),
+				%   must_be_of_type( atom, File ),
+	( var(File) -> instantiation_error(File) ; true),
 	abs_file_parameters(LOpts,Opts),
 	current_prolog_flag(open_expands_filename, OldF),
 	current_prolog_flag( fileerrors, PreviousFileErrors ),
@@ -191,7 +189,7 @@ absolute_file_name(File0,File) :-
     (
      % look for solutions
          '$find_in_path'(File, Opts,TrueFileName),
-         (     (First == first -> ! ; nb_setarg(1, HasSol, yes) ),
+        (     (First == first -> ! ; nb_setarg(1, HasSol, yes) ),
 	           set_prolog_flag( fileerrors, PreviousFileErrors ),
 	           set_prolog_flag( open_expands_filename, OldF),
 	           set_prolog_flag( verbose_file_search, PreviousVerbose ),
@@ -247,7 +245,7 @@ absolute_file_name(File0,File) :-
      ;
          EPath = APath
     ),
-      real_path( EPath, File),
+    real_path( EPath, File),
     '$absf_trace'('      after canonical path name: ~a', [File]),
     '$check_file'( File, Type, Access ),
     '$absf_trace'('       after testing ~a for ~a and ~a', [File,Type,Access]).
@@ -256,7 +254,7 @@ absolute_file_name(File0,File) :-
 '$core_file_name'(Name, Opts) -->
     '$file_name'(Name, Opts, E),
     '$suffix'(E, Opts),
-    '$glob'(Opts).	  			 
+    '$glob'(Opts).
 
 %
 % handle library(lists) or foreign(jpl)
@@ -405,8 +403,8 @@ absolute_file_name(File0,File) :-
 
 
 '$dir' --> { current_prolog_flag(windows, true) },
-	   !,
-	   "\\".
+	   "\\",
+	   !.
 '$dir' --> "/".
 
 '$dir'('/') --> !.
@@ -435,35 +433,35 @@ absolute_file_name(File0,File) :-
     sub_atom(Cs, N0, 1, N, Sep),
     !,
     (
-	sub_atom(Cs,0,N0,_,C)
+	     sub_atom(Cs,0,N0,_,C)
      ;
-     sub_atom(Cs,_,N,0,RC),
-     '$paths'(RC, C)
+        sub_atom(Cs,_,N,0,RC),
+        '$paths'(RC, C)
     ).
 '$paths'(S, S).
 
 '$absf_trace'(Msg, Args ) -->
     { current_prolog_flag( verbose_file_search, true ) },
-    !,
-    { print_message( informational, absolute_file_path( Msg, Args ) ) }.
+    { print_message( informational, absolute_file_path( Msg, Args ) ) },
+    !.
 '$absf_trace'(_Msg, _Args ) --> [].
 
 '$absf_trace'(Msg, Args ) :-
     current_prolog_flag( verbose_file_search, true ),
-    !,
-    print_message( informational, absolute_file_path( Msg, Args ) ).
+    print_message( informational, absolute_file_path( Msg, Args ) ),
+    !.
 '$absf_trace'(_Msg, _Args ).
 
 '$absf_trace'( File ) :-
 	current_prolog_flag( verbose_file_search, true ),
-	!,
-	print_message( informational, absolute_file_path( File ) ).
+	print_message( informational, absolute_file_path( File ) ),
+	!.
 '$absf_trace'( _File ).
 
 '$absf_trace_options'(Args ) :-
 	current_prolog_flag( verbose_file_search, true ),
-	!,
-	print_message( informational, arguments( Args ) ).
+	print_message( informational, arguments( Args ) ),
+	!.
 '$absf_trace_options'( _Args ).
 
 /** @pred prolog_file_name( +File, -PrologFileaNme)
@@ -590,19 +588,13 @@ user:library_directory( Dir ) :-
 
   This directory is initialized as a rule that calls the system predicate
   library_directories/2.
-*/
-
-:- multifile user:commons_directory/1.
-
 :- dynamic user:commons_directory/1.
 
 :- multifile user:system_commons/1.
 :- dynamic user:system_commons/1.
 
-user:system_commons(_Path):-fail.
-
 user:commons_directory( Path ):-
-    user:system_commons( Path ).
+    system_commons( Path ).
 
 /**
   @pred user:foreign_directory(? _Directory_:atom) is nondet, dynamic

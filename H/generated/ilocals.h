@@ -1,12 +1,9 @@
 
   /* This file, ilocals.h, was generated automatically by "yap -L misc/buildlocalglobal"
-     please do not update, update misc/LOCALS instead */
+     please do not update, update H/LOCALS instead */
 
 
 static void InitWorker(int wid) {
-
-  REMOTE_FileAliases(wid) = Yap_InitStandardAliases();
-
 
   REMOTE_c_input_stream(wid) = 0;
   REMOTE_c_output_stream(wid) = 1;
@@ -77,12 +74,18 @@ static void InitWorker(int wid) {
   REMOTE_TmpPred(wid) = NULL;
   REMOTE_ScannerStack(wid) = NULL;
   REMOTE_ScannerExtraBlocks(wid) = NULL;
+
+
   REMOTE_BallTerm(wid) = NULL;
+
+  REMOTE_CBorder(wid) = 0;
+
   REMOTE_MaxActiveSignals(wid) = 64L;
+
   REMOTE_Signals(wid) = 0L;
+
   REMOTE_IPredArity(wid) = 0L;
   REMOTE_ProfEnd(wid) = NULL;
-  REMOTE_UncaughtThrow(wid) = FALSE;
   REMOTE_DoingUndefp(wid) = FALSE;
   REMOTE_StartCharCount(wid) = 0L;
   REMOTE_StartLineCount(wid) = 0L;
@@ -266,6 +269,7 @@ static void InitWorker(int wid) {
 
 
 
+
   REMOTE_CurSlot(wid) = 0;
   REMOTE_NSlots(wid) = 0;
   REMOTE_SlotBase(wid) = InitHandles(wid);
@@ -275,5 +279,5 @@ static void InitWorker(int wid) {
   REMOTE_Including(wid) = TermNil;
   REMOTE_MAX_SIZE(wid) = 1024L;
 
-  REMOTE_LastWTime(wid) = NULL;
+  REMOTE_LastWTime(wid) = 0;
 }

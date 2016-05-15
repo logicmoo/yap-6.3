@@ -16,18 +16,18 @@
 *************************************************************************/
 /* static char SccsId[] = "X 4.3.3"; */
 
-#include "config.h"
 #include "Yap.h"
 #include "YapHeap.h"
 #include "YapInterface.h"
+#include "config.h"
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #if HAVE_STDINT_H
 #include <stdint.h>
 #endif
-#include <stdlib.h>
 #include <stddef.h>
+#include <stdlib.h>
 #ifdef _MSC_VER /* Microsoft's Visual C++ Compiler */
 #ifdef HAVE_UNISTD_H
 #undef HAVE_UNISTD_H
@@ -64,7 +64,8 @@
 #define DEFAULT_SCHEDULERLOOP 10
 #define DEFAULT_DELAYEDRELEASELOAD 3
 
-static void print_usage(void) {
+    static void
+    print_usage(void) {
   fprintf(stderr, "\n[ Valid switches for command line arguments: ]\n");
   fprintf(stderr, "  -?   Shows this screen\n");
   fprintf(stderr, "  -b   Boot file \n");
@@ -154,12 +155,14 @@ static int dump_runtime_variables(void) {
   return 1;
 }
 
-X_API int YAP_parse_yap_arguments(int argc, char *argv[], YAP_init_args *iap) {
+X_API YAP_file_type_t YAP_parse_yap_arguments(int argc, char *argv[], YAP_init_args *iap) {
   char *p;
-  int BootMode = YAP_BOOT_FROM_SAVED_CODE;
+  int BootMode = YAP_QLY;
   unsigned long int *ssize;
 
   iap->SavedState = NULL;
+  iap->initial_file_type = YAP_QLY;
+  
   iap->HeapSize = 0;
   iap->StackSize = 0;
   iap->TrailSize = 0;
@@ -171,13 +174,13 @@ X_API int YAP_parse_yap_arguments(int argc, char *argv[], YAP_init_args *iap) {
   iap->MaxTrailSize = 0;
   iap->YapLibDir = NULL;
   iap->YapPrologBootFile = NULL;
-  iap->YapPrologInitFile = NULL;
+  iap->YapPrologInitGoal = NULL;
   iap->YapPrologRCFile = NULL;
   iap->YapPrologGoal = NULL;
   iap->YapPrologTopLevelGoal = NULL;
   iap->YapPrologAddPath = NULL;
   iap->HaltAfterConsult = FALSE;
-  iap->FastBoot = FALSE;
+  iap->FastBoot = false;
   iap->MaxTableSpaceSize = 0;
   iap->NumberWorkers = DEFAULT_NUMBERWORKERS;
   iap->SchedulerLoop = DEFAULT_SCHEDULERLOOP;
@@ -196,9 +199,26 @@ X_API int YAP_parse_yap_arguments(int argc, char *argv[], YAP_init_args *iap) {
     if (*p == '-')
       switch (*++p) {
       case 'b':
-        BootMode = YAP_BOOT_FROM_PROLOG;
-        iap->YapPrologBootFile = *++argv;
-        argc--;
+        iap->initial_file_type = BootMode = YAP_PL;
+	if (p[1])
+	  iap->YapPrologBootFile = p+1;
+	else if (argv[1] && *argv[1] != '-') {
+	  iap->YapPrologBootFile = *++argv;
+	  argc--;
+	} else {
+	  iap->YapPrologBootFile = "boot.yap";
+	}
+        break;
+      case 'B':
+        iap->initial_file_type = BootMode = YAP_BOOT_PL;
+ 	if (p[1])
+	  iap->YapPrologBootFile = p+1;
+	else if (argv[1] && *argv[1] != '-') {
+	  iap->YapPrologBootFile = *++argv;
+	  argc--;
+	} else {
+	  iap->YapPrologBootFile = "boot.yap";
+	}
         break;
       case '?':
         print_usage();

@@ -6,22 +6,23 @@
 
 project(YAP)
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.0)
 
 # where we have most scripts
 # set path to additional CMake modules
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 include(disallow)
 
 disallow_intree_builds()
-
-
 
 # set(CMAKE_BUILD_TYPE  Debug)
 
 set (MACOSX_RPATH ON)
 if(POLICY CMP0042)
+  cmake_policy(SET CMP0042 NEW)
 endif(POLICY CMP0042)
 if(POLICY CMP0043)
 cmake_policy(SET CMP0043 NEW)
@@ -83,6 +84,21 @@ include (MacroOptionalFindPackage)
 include (MacroLogFeature)
 include(GetGitRevisionDescription)
 
+#cross-compilation support
+# Search packages for host system instead of packages for target system
+# in case of cross compilation these macro should be defined by toolchain file
+if(NOT COMMAND find_host_package)
+  macro(find_host_package)
+    find_package(${ARGN})
+  endmacro()
+endif()
+if(NOT COMMAND find_host_program)
+  macro(find_host_program)
+    find_program(${ARGN})
+  endmacro()
+endif()
+
+
 # Test signal handler return type (mimics AC_TYPE_SIGNAL)
 include(TestSignalType) #check if this is really needed as c89 defines this as void
 
@@ -97,7 +113,56 @@ endif()
 get_git_head_revision(GIT_HEAD GIT_SHA1)
 git_describe(GIT_DESCRIBE)
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if (ANDROID)
+  IF(DEFINED ENV{ANDROID_SDK})
+    set (ANDROID_SDK $ENV{ANDROID_SDK})
+ELSEIF( NOT DEFINED ANDROID_SDK)
+  message("ANDROID_SDK is not defined.  You must tell CMake where to find the SDK")
+  # exit early
+  return()
+ENDIF()
+  set (ANDROIDDLLS "android" "log")
+  set (ANDROID_ANT ${ANDROID_SDK}/tools/ant)
+  set (ANDROID_SDK_TOOL ${ANDROID_SDK}/tools/android)
+else()
+  set(YAP_STARTUP startup.yss)
+endif()
+
+
+  option (WITH_CUDD "BDD CUDD package" ON)
+if (WITH_CUDD)
+#detect cudd setup, as it is shared between different installations.
+
+find_package(CUDD)
+#  CUDD_FOUND       - system has CUDD
+#  CUDD_LIBRARIES   - Link these to use CUDD
+#  CUDD_INCLUDE_DIR - Include directory for using CUDD
+#
+
+    set( CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${CUDD_INCLUDE_DIR} )
+
+  check_include_files( cudd.h HAVE_CUDD_H )
+check_include_files( "stdio.h;cudd/cudd.h" HAVE_CUDD_CUDD_H )
+check_include_files( cuddInt.h HAVE_CUDDINT_H )
+check_include_files( "stdio.h;cudd/cudd.h;cudd/cuddInt.h" HAVE_CUDD_CUDDINT_H )
+
+endif(WITH_CUDD)
+
+option(WITH_JAVA "Try to use Java (currently Java 6,7,8)" ON)
+
+if (WITH_JAVA)
+  include(java)
+endif(WITH_JAVA)
+
+option(WITH_PYTHON  "Try to use Python (currently Python 3)" ON)
+
+if (WITH_PYTHON)
+  include(python)
+endif()
+
+
+if (
+)
   cmake_policy( SET CMP0042 NEW)
   #cmake_policy( NO_POLICY_SCOPE )
 endif()
@@ -109,6 +174,23 @@ set (BUILD_SHARED_LIBS ON)
 include (Sources)
 
 
+if (YAP_SINGLE_FILE)
+set(YAP_MODULES
+    $<TARGET_OBJECTS:Yapsqlite3>
+    $<TARGET_OBJECTS:Yap++>
+    $<TARGET_OBJECTS:utf8proc>
+)
+else(YAP_SINGLE_FILE)
+  if (WIN32)
+  set(YAP_MODULES
+    $<TARGET_OBJECTS:Yap++>
+    ${YAP_MODULES}
+    )
+  endif(  )
+  set( UTF8PROC_DL utf8proc)
+endif(YAP_SINGLE_FILE)
+
+
 add_library(libYap
   ${ENGINE_SOURCES}
   ${C_INTERFACE_SOURCES}
@@ -116,11 +198,13 @@ add_library(libYap
   ${OPTYAP_SOURCES}
   ${HEADERS}
   ${WINDLLS}
-    $<TARGET_OBJECTS:libYAPOs>
+  $<TARGET_OBJECTS:libYAPOs>
   $<TARGET_OBJECTS:libOPTYap>
-  $<TARGET_OBJECTS:myddas>  
-  $<TARGET_OBJECTS:libswi>  
+  $<TARGET_OBJECTS:myddas>
+  $<TARGET_OBJECTS:libswi>
+  ${YAP_MODULES}
 )
+
 
 set_property(DIRECTORY PROPERTY CXX_STANDARD 11)
 
@@ -129,7 +213,8 @@ set_property(DIRECTORY PROPERTY CXX_STANDARD 11)
   include (Config)
 
 IF (NOT MSVC)
-  target_link_libraries(libYap m)
+  target_link_libraries(libYap m  ${ANDROIDDLLS}
+  )
 ENDIF (NOT MSVC)
 
 set_target_properties(libYap
@@ -143,6 +228,20 @@ set(CMAKE_TOP_BINARY_DIR ${CMAKE_BINARY_DIR})
 set(YAP_PL_SRCDIR ${CMAKE_SOURCE_DIR}/pl)
 
 # Compatibility vars with autotols
+if (ANDROID)
+set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/packages/swig/android)
+set ( prefix "${CMAKE_INSTALL_PREFIX}")
+set ( exec_prefix "${prefix}")
+set ( libdir "${exec_prefix}/libs/${ANDROID_ABI}")
+set ( dlls "${libdir}")
+set ( includedir "${prefix}/include")
+set ( datarootdir "${prefix}/share")
+set ( libpl  "${datarootdir}/Yap")
+set ( datadir "${datarootdir}")
+set ( mandir "${datarootdir}/man")
+set ( bindir "${exec_prefix}/bin")
+set ( docdir "${exec_prefix}/share/doc/Yap")
+else()
 set ( prefix "${CMAKE_INSTALL_PREFIX}")
 set ( exec_prefix "${prefix}")
 set ( libdir "${exec_prefix}/lib")
@@ -154,6 +253,7 @@ set ( datadir "${datarootdir}")
 set ( mandir "${datarootdir}/man")
 set ( bindir "${exec_prefix}/bin")
 set ( docdir "${exec_prefix}/share/doc/Yap")
+endif()
 
 set(YAP_ROOTDIR ${prefix})
 
@@ -167,7 +267,6 @@ set(YAP_INCLUDEDIR "${includedir}")
 set(YAP_ROOTDIR "${prefix}")
 
 set(YAP_YAPLIB libYap${CMAKE_SHARED_LIBRARY_SUFFIX})
-set(YAP_STARTUP startup.yss)
 string(TIMESTAMP YAP_TIMESTAMP)
 string( SUBSTRING ${CMAKE_SHARED_LIBRARY_SUFFIX} 1 -1 SO_EXT )
 #
@@ -296,8 +395,8 @@ macro_log_feature (GMP_FOUND
 if (GMP_FOUND)
 # GMP_FOUND         - true if GMP/MPIR was found
 # GMP_INCLUDE_DIRS  - include search path
-# GMP_LIBARIES      - libraries to link with
-# GMP_LIBARY_DLL    - library DLL to install. Only available on WIN32.
+# GMP_LIBRARIES      - libraries to link with
+# GMP_LIBRARY_DLL    - library DLL to install. Only available on WIN32.
 # GMP_LIBRARIES_DIR - the directory the library we link with is found in.
   include_directories (${GMP_INCLUDE_DIRS})
     #add_executable(test ${SOURCES})
@@ -305,6 +404,10 @@ if (GMP_FOUND)
     #config.h needs this (TODO: change in code latter)
     set( CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${GMP_INCLUDE_DIRS} )
     #set( CMAKE_REQUIRED_LIBRARIES  ${GMP_LIBRARIES} ${CMAKE_REQUIRED_LIBRARIES} )
+IF (MSVC)
+file(COPY ${GMP_LIBRARY_DLL} DESTINATION ${CMAKE_BINARY_DIR} )
+ENDIF(MSVC)
+
   endif (GMP_FOUND)
 
 macro_optional_find_package (Threads OFF)
@@ -409,7 +512,7 @@ add_subDIRECTORY (packages/jpl)
 
 add_subDIRECTORY (packages/swicli)
 
-add_subDIRECTORY (packages/swig)
+# add_subDIRECTORY (packages/swig)
 
 add_subDIRECTORY (packages/bdd)
 
@@ -417,6 +520,7 @@ add_subDIRECTORY (packages/ProbLog)
 
 add_subDIRECTORY (packages/swi-minisat2)
 
+IF (NOT MSVC)
 OPTION (WITH_CLPBN " Enable the CLPBN and PFL probabilistic languages"  ON)
 
 OPTION (WITH_CPLINT " Enable the cplint probabilistic language"  ON)
@@ -430,6 +534,7 @@ ENDIF()
 IF (WITH_CPLINT)
 add_subDIRECTORY (packages/cplint)
 ENDIF()
+ENDIF(NOT MSVC)
 
 add_subDIRECTORY (packages/raptor)
 
@@ -460,7 +565,7 @@ option (WITH_DOCS
 
 #TODO: use cmake target builds
 # option (USE_DEBUGYAP
-#   "enable C-debugging for YAP" OFF)
+#   "enable C-debugging for YAP" OFF)e
 
 #TODO: use cmake arch/compiler
 # option (USE_CYGWIN
@@ -469,6 +574,10 @@ option (WITH_DOCS
 option (WITH_PRISM
   "use PRISM system in YAP" ON)
 #TODO:
+
+#must be last
+add_subDIRECTORY (packages/swig)
+
 
 option (WITH_YAP_DLL
   "compile YAP as a DLL" ON)
@@ -517,18 +626,21 @@ endif()
 
 
 target_link_libraries(libYap
-  utf8proc
+  ${UTF8PROC_DL}
   ${GMP_LIBRARIES}
   ${READLINE_LIBS}
   ${CMAKE_DL_LIBS}
   )
 
 if(WIN32)
+
   if(MSVC)
-      set(MSVC_RUNTIME "dynamic")  
+      set(MSVC_RUNTIME "dynamic")
   ENDIF(MSVC)
+
   target_link_libraries(libYap  wsock32 ws2_32 Shlwapi)
-endif()
+
+endif(WIN32)
 
 add_executable (yap-bin ${CONSOLE_SOURCES})
 
@@ -542,8 +654,6 @@ CMAKE_DEPENDENT_OPTION (WITH_SYSTEM_MMAP "Use MMAP for shared memory allocation"
 
 CMAKE_DEPENDENT_OPTION (WITH_SYSTEM_SHM "Use SHM for shared memory allocation" ON
   "NOT WITH_YAPOR_THOR; NOT WITH_SYSTEM_MMAP" OFF )
-
-macro_optional_find_package (MPI OFF)
 
   add_subDIRECTORY(library/lammpi)
 
@@ -567,7 +677,11 @@ macro_optional_find_package (MPI OFF)
   endif (MPI_C_FOUND)
 
 
-add_custom_target (main ALL DEPENDS ${YAP_STARTUP} ) # WORKING_DIRECTORY ${CMAKE_BINARY_DIR} )
+ ##   add_subDIRECTORY(utils)
+
+if (NOT ANDROID)
+  add_custom_target (main ALL DEPENDS ${YAP_STARTUP} ) # WORKING_DIRECTORY ${CMAKE_BINARY_DIR} )
+endif()
 #
 # include subdirectories configuration
 ## after we have all functionality in
@@ -590,6 +704,7 @@ install (
     ARCHIVE  DESTINATION ${libdir}
     LIBRARY  DESTINATION ${libdir}
   )
+
 
 
 macro_display_feature_log()

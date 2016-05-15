@@ -25,11 +25,12 @@ static char SccsId[] = "%W% %G%";
 
 #define __INIT_C__ 1
 
-#include <stdlib.h>
 #include "Yap.h"
+#include "alloc.h"
 #include "clause.h"
 #include "yapio.h"
-#include "alloc.h"
+#include <stdlib.h>
+
 #include "Foreign.h"
 
 #ifdef LOW_LEVEL_TRACER
@@ -201,10 +202,17 @@ static int OpDec(int p, const char *type, Atom a, Term m) {
   AtomEntry *ae = RepAtom(a);
   OpEntry *info;
 
+#if defined(MODULE_INDEPENDENT_OPERATORS_FLAG)
+  if (booleanFlag(MODULE_INDEPENDENT_OPERATORS_FLAG)) {
+    m = PROLOG_MODULE;    
+} else
+#endif
+    {
   if (m == TermProlog)
     m = PROLOG_MODULE;
   else if (m == USER_MODULE)
-    m = PROLOG_MODULE;
+    m = PROLOG_MODULE;    
+  }
   for (i = 1; i <= 7; ++i)
     if (strcmp(type, optypes[i]) == 0)
       break;
@@ -222,9 +230,14 @@ static int OpDec(int p, const char *type, Atom a, Term m) {
   WRITE_LOCK(ae->ARWLock);
   info = Yap_GetOpPropForAModuleHavingALock(ae, m);
   if (EndOfPAEntr(info)) {
+    ModEntry *me;
     info = (OpEntry *)Yap_AllocAtomSpace(sizeof(OpEntry));
+    if (!info)
+      return false;
     info->KindOfPE = Ord(OpProperty);
-    info->OpModule = m;
+    info->NextForME = (me = Yap_GetModuleEntry(m))->OpForME;
+    me->OpForME = info;
+    info->OpModule = m;    
     info->OpName = a;
     // LOCK(OpListLock);
     info->OpNext = OpList;
@@ -245,7 +258,7 @@ static int OpDec(int p, const char *type, Atom a, Term m) {
       /* ISO dictates */
       WRITE_UNLOCK(info->OpRWLock);
       Yap_Error(PERMISSION_ERROR_CREATE_OPERATOR, MkAtomTerm(a), "op/3");
-      return FALSE;
+      return false;
     }
     info->Infix = p;
   } else if (i <= 5) {
@@ -255,14 +268,14 @@ static int OpDec(int p, const char *type, Atom a, Term m) {
       /* ISO dictates */
       WRITE_UNLOCK(info->OpRWLock);
       Yap_Error(PERMISSION_ERROR_CREATE_OPERATOR, MkAtomTerm(a), "op/3");
-      return FALSE;
+      return false;
     }
     info->Posfix = p;
   } else {
     info->Prefix = p;
   }
   WRITE_UNLOCK(info->OpRWLock);
-  return (TRUE);
+  return true;
 }
 
 int Yap_OpDec(int p, char *type, Atom a, Term m) {
@@ -276,6 +289,22 @@ static void SetOp(int p, int type, char *at, Term m) {
 #endif
   OpDec(p, optypes[type], Yap_LookupAtom(at), m);
 }
+
+bool Yap_dup_op(OpEntry  *op, ModEntry *she)
+{
+  AtomEntry *ae = RepAtom(op->OpName);
+  OpEntry *info = (OpEntry *)Yap_AllocAtomSpace(sizeof(OpEntry));
+  if (!info)
+    return false;
+  memcpy(info, op, sizeof(OpEntry));
+  info->NextForME =she->OpForME;
+  she->OpForME = info;
+  info->OpModule = MkAtomTerm(she->AtomOfME);
+  AddPropToAtom(ae, AbsOpProp(info));
+  INIT_RWLOCK(info->OpRWLock);
+  return true;
+}
+
 
 /* Gets the info about an operator in a prop */
 Atom Yap_GetOp(OpEntry *pp, int *prio, int fix) {
@@ -412,7 +441,11 @@ static void InitDebug(void) {
   if (Yap_output_msg) {
     char ch;
 
-#if HAVE_ISATTY
+#if _WIN32
+    if (!_isatty(_fileno(stdin))) {
+      return;
+    }
+#elif HAVE_ISATTY
     if (!isatty(0)) {
       return;
     }
@@ -422,9 +455,11 @@ static void InitDebug(void) {
     fprintf(stderr, "a getch\t\tb token\t\tc Lookup\td LookupVar\ti Index\n");
     fprintf(stderr, "e SetOp\t\tf compile\tg icode\t\th boot\t\tl log\n");
     fprintf(stderr, "m Machine\t p parser\n");
-    while ((ch = putchar(getchar())) != '\n')
+    while ((ch = putchar(getchar())) != '\n' && ch != '\r') {
       if (ch >= 'a' && ch <= 'z')
         GLOBAL_Option[ch - 'a' + 1] = 1;
+      GLOBAL_Option[ch - 'a' + 1] = 1;
+    }
     if (GLOBAL_Option['l' - 96]) {
       GLOBAL_logfile = fopen(LOGFILE, "w");
       if (GLOBAL_logfile == NULL) {
@@ -462,7 +497,7 @@ static UInt update_flags_from_prolog(UInt flags, PredEntry *pe) {
   return flags;
 }
 
-void Yap_InitCPred(const char *Name, UInt Arity, CPredicate code,
+void Yap_InitCPred(const char *Name, arity_t Arity, CPredicate code,
                    pred_flags_t flags) {
   CACHE_REGS
   Atom atom = NIL;
@@ -606,7 +641,7 @@ bool Yap_AddCutToFli(PredEntry *pe, CPredicate CUT) {
   }
 }
 
-void Yap_InitCmpPred(const char *Name, UInt Arity, CmpPredicate cmp_code,
+void Yap_InitCmpPred(const char *Name, arity_t Arity, CmpPredicate cmp_code,
                      pred_flags_t flags) {
   CACHE_REGS
   Atom atom = NIL;
@@ -685,7 +720,7 @@ void Yap_InitCmpPred(const char *Name, UInt Arity, CmpPredicate cmp_code,
   p_code->y_u.l.l = cl->ClCode;
 }
 
-void Yap_InitAsmPred(const char *Name, UInt Arity, int code, CPredicate def,
+void Yap_InitAsmPred(const char *Name, arity_t Arity, int code, CPredicate def,
                      pred_flags_t flags) {
   CACHE_REGS
   Atom atom = NIL;
@@ -825,18 +860,18 @@ static void CleanBack(PredEntry *pe, CPredicate Start, CPredicate Cont,
   code->y_u.OtapFs.f = Cut;
 }
 
-void Yap_InitCPredBack(const char *Name, UInt Arity, unsigned int Extra,
-                       CPredicate Start, CPredicate Cont, pred_flags_t flags) {
-  Yap_InitCPredBack_(Name, Arity, Extra, Start, Cont, NULL, flags);
+void Yap_InitCPredBack(const char *Name, arity_t Arity, arity_t Extra,
+                       CPredicate Call, CPredicate Retry, pred_flags_t flags) {
+  Yap_InitCPredBack_(Name, Arity, Extra, Call, Retry, NULL, flags);
 }
 
-void Yap_InitCPredBackCut(const char *Name, UInt Arity, unsigned int Extra,
+void Yap_InitCPredBackCut(const char *Name, arity_t Arity, arity_t Extra,
                           CPredicate Start, CPredicate Cont, CPredicate Cut,
                           pred_flags_t flags) {
   Yap_InitCPredBack_(Name, Arity, Extra, Start, Cont, Cut, flags);
 }
 
-void Yap_InitCPredBack_(const char *Name, UInt Arity, unsigned int Extra,
+void Yap_InitCPredBack_(const char *Name, arity_t Arity, arity_t Extra,
                         CPredicate Start, CPredicate Cont, CPredicate Cut,
                         pred_flags_t flags) {
   CACHE_REGS
@@ -1002,29 +1037,28 @@ static void InitOtaplInst(yamop start[1], OPCODE opc, PredEntry *pe) {
 }
 
 static void InitDBErasedMarker(void) {
- DBErasedMarker = (DBRef)Yap_AllocCodeSpace(sizeof(DBStruct));
+  DBErasedMarker = (DBRef)Yap_AllocCodeSpace(sizeof(DBStruct));
   Yap_LUClauseSpace += sizeof(DBStruct);
- DBErasedMarker->id = FunctorDBRef;
- DBErasedMarker->Flags = ErasedMask;
- DBErasedMarker->Code = NULL;
- DBErasedMarker->DBT.DBRefs = NULL;
- DBErasedMarker->Parent = NULL;
+  DBErasedMarker->id = FunctorDBRef;
+  DBErasedMarker->Flags = ErasedMask;
+  DBErasedMarker->Code = NULL;
+  DBErasedMarker->DBT.DBRefs = NULL;
+  DBErasedMarker->Parent = NULL;
 }
 
 static void InitLogDBErasedMarker(void) {
- LogDBErasedMarker = (LogUpdClause *)Yap_AllocCodeSpace(
+  LogDBErasedMarker = (LogUpdClause *)Yap_AllocCodeSpace(
       sizeof(LogUpdClause) + (UInt)NEXTOP((yamop *)NULL, e));
   Yap_LUClauseSpace += sizeof(LogUpdClause) + (UInt)NEXTOP((yamop *)NULL, e);
- LogDBErasedMarker->Id = FunctorDBRef;
- LogDBErasedMarker->ClFlags = ErasedMask | LogUpdMask;
- LogDBErasedMarker->lusl.ClSource = NULL;
- LogDBErasedMarker->ClRefCount = 0;
- LogDBErasedMarker->ClExt = NULL;
- LogDBErasedMarker->ClPrev = NULL;
- LogDBErasedMarker->ClNext = NULL;
- LogDBErasedMarker->ClSize =
-      (UInt)NEXTOP(((LogUpdClause *)NULL)->ClCode, e);
- LogDBErasedMarker->ClCode->opc = Yap_opcode(_op_fail);
+  LogDBErasedMarker->Id = FunctorDBRef;
+  LogDBErasedMarker->ClFlags = ErasedMask | LogUpdMask;
+  LogDBErasedMarker->lusl.ClSource = NULL;
+  LogDBErasedMarker->ClRefCount = 0;
+  LogDBErasedMarker->ClExt = NULL;
+  LogDBErasedMarker->ClPrev = NULL;
+  LogDBErasedMarker->ClNext = NULL;
+  LogDBErasedMarker->ClSize = (UInt)NEXTOP(((LogUpdClause *)NULL)->ClCode, e);
+  LogDBErasedMarker->ClCode->opc = Yap_opcode(_op_fail);
   INIT_CLREF_COUNT(LogDBErasedMarker);
 }
 
@@ -1274,6 +1308,11 @@ static void InitVersion(void) {
   Yap_PutValue(AtomVersionNumber, MkAtomTerm(Yap_LookupAtom(YAP_FULL_VERSION)));
 }
 
+const char *Yap_version(void) {
+  Term t = Yap_GetValue(AtomVersionNumber);
+  return RepAtom(AtomOfTerm(t))->StrOfAE;
+}
+
 void Yap_InitWorkspace(UInt Heap, UInt Stack, UInt Trail, UInt Atts,
                        UInt max_table_size, int n_workers, int sch_loop,
                        int delay_load) {
@@ -1351,7 +1390,6 @@ void Yap_InitWorkspace(UInt Heap, UInt Stack, UInt Trail, UInt Atts,
 #endif /* YAPOR || TABLING */
 
   Yap_AttsSize = Atts;
-  Yap_InitTime(0);
 /* InitAbsmi must be done before InitCodes */
 /* This must be done before initializing predicates */
 #ifdef MPW
@@ -1433,5 +1471,6 @@ void Yap_exit(int value) {
     Yap_ShutdownLoadForeign();
   }
   Yap_CloseStreams(false);
+  Yap_CloseReadline();
   exit(value);
 }

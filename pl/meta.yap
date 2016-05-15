@@ -2,7 +2,7 @@
 
 @{
 
- @defgroup YAPMetaPredicates Using Meta-Calls with Modules
+  @defgroup YAPMetaPredicates Using Meta-Calls with Modules
  @ingroup YAPModules
 
   @pred meta_predicate(_G1_,...., _Gn) is directive
@@ -70,7 +70,7 @@ meta_predicate declaration
 
 % I assume the clause has been processed, so the
 % var case is long gone! Yes :)
-'$clean_cuts'(G,(yap_hacks:current_choicepoint(DCP),NG)) :-
+'$clean_cuts'(G,('$current_choicepoint'(DCP),NG)) :-
 	'$conj_has_cuts'(G,DCP,NG,OK), OK == ok, !.
 '$clean_cuts'(G,G).
 
@@ -151,8 +151,8 @@ meta_predicate declaration
 '$meta_expand'(G0, PredDef, CM, HVars, NG) :-
 	G0 =.. [Name|GArgs],
 	PredDef =.. [Name|GDefs],
-    functor(PredDef, Name, Arity ),
-    length(NGArgs, Arity),
+	functor(PredDef, Name, Arity ),
+	length(NGArgs, Arity),
 	NG =.. [Name|NGArgs],
 	'$expand_args'(GArgs, CM, GDefs, HVars, NGArgs).
 
@@ -206,10 +206,10 @@ meta_predicate declaration
 % modules:
 % A4: module for body of clause (this is the one used in looking up predicates)
 % A5: context module (this is the current context
-% A6: head module (this is the one used in compiling and accessing).
+				% A6: head module (this is the one used in compiling and accessing).
 %
 %
-%'$expand_goals'(V,NG,NG,HM,SM,BM,HVars):-l writeln(V), fail.
+%'$expand_goals'(V,NG,NG,HM,SM,BM,HVars):- writeln(V), fail.
 '$expand_goals'(V,NG,NGO,HM,SM,BM,HVars-H) :-
 	var(V),
     !,
@@ -284,7 +284,7 @@ meta_predicate declaration
 '$expand_goals'(\+A,\+A1,(AO-> false;true),HM,SM,BM,HVars) :- !,
 	'$expand_goals'(A,A1,AO,HM,SM,BM,HVars).
 '$expand_goals'(once(A),once(A1),
-	(yap_hacks:current_choice_point(CP),AO,'$$cut_by'(CP)),HM,SM,BM,HVars) :- !,
+	('$current_choice_point'(CP),AO,'$$cut_by'(CP)),HM,SM,BM,HVars) :- !,
 	'$expand_goals'(A,A1,AO0,HM,SM,BM,HVars),
         '$clean_cuts'(AO0, CP, AO).
 '$expand_goals'(ignore(A),ignore(A1),
@@ -299,19 +299,19 @@ meta_predicate declaration
 '$expand_goals'(not(A),not(A1),(AO -> fail; true),HM,SM,BM,HVars) :- !,
 	'$expand_goals'(A,A1,AO,HM,SM,BM,HVars).
 '$expand_goals'(if(A,B,C),if(A1,B1,C1),
-	(yap_hacks:current_choicepoint(DCP),AO,yap_hacks:cut_at(DCP),BO; CO),HM,SM,BM,HVars) :- !,
+	('$current_choicepoint'(DCP),AO,yap_hacks:cut_at(DCP),BO; CO),HM,SM,BM,HVars) :- !,
 	'$expand_goals'(A,A1,AO0,HM,SM,BM,HVars),
 	'$expand_goals'(B,B1,BO,HM,SM,BM,HVars),
 	'$expand_goals'(C,C1,CO,HM,SM,BM,HVars),
         '$clean_cuts'(AO0, DCP, AO).
 '$expand_goals'((A*->B;C),(A1*->B1;C1),
-	(yap_hacks:current_choicepoint(DCP),AO,yap_hacks:cut_at(DCP),BO; CO),HM,SM,BM,HVars) :- !,
+	('$current_choicepoint'(DCP),AO,yap_hacks:cut_at(DCP),BO; CO),HM,SM,BM,HVars) :- !,
 	'$expand_goals'(A,A1,AO0,HM,SM,BM,HVars),
 	'$expand_goals'(B,B1,BO,HM,SM,BM,HVars),
 	'$expand_goals'(C,C1,CO,HM,SM,BM,HVars),
     '$clean_cuts'(AO0, DCP, AO).
 '$expand_goals'((A*->B),(A1*->B1),
-	(yap_hacks:current_choicepoint(DCP),AO,BO),HM,SM,BM,HVars) :- !,
+	('$current_choicepoint'(DCP),AO,BO),HM,SM,BM,HVars) :- !,
 	'$expand_goals'(A,A1,AO0,HM,SM,BM,HVars),
 	'$expand_goals'(B,B1,BO,HM,SM,BM,HVars),
     '$clean_cuts'(AO0, DCP, AO).
@@ -328,12 +328,14 @@ meta_predicate declaration
      !.
 '$import_expansion'(MG, MG).
 
-'$meta_expansion'(GM:G, BM, HVars, GM:GF) :-
+'$meta_expansion'(GMG, BM, HVars, GM:GF) :-
+	'$yap_strip_module'(GMG, GM, G ),
 	 functor(G, F, Arity ),
 	 '$meta_predicate'(F, GM, Arity, PredDef),
-	!,
+	 !,
 	 '$meta_expand'(G, PredDef, BM, HVars, GF).
- '$meta_expansion'(GM:G, _BM, _HVars, GM:G).
+'$meta_expansion'(GMG, _BM, _HVars, GM:G) :-
+	'$yap_strip_module'(GMG, GM, G ).
 
  /**
  * @brief Perform meta-variable and user expansion on a goal _G_
@@ -398,7 +400,7 @@ o:p(B) :- n:g, X is 2+3, call(B).
 '$build_up'(HM, NH, SM, true, NH, true, NH) :- HM == SM, !.
 '$build_up'(HM, NH, _SM, true, HM:NH, true, HM:NH) :- !.
 '$build_up'(HM, NH, SM, B1, (NH :- B1), BO, ( NH :- BO)) :- HM == SM, !.
-'$build_up'(HM, NH, _SM, B1, (HM:NH :- B1), BO, ( HM:NH :- BO)) :- !.
+'$build_up'(HM, NH, _SM, B1, (NH :- B1), BO, ( HM:NH :- BO)) :- !.
 
 '$expand_clause_body'(true, _NH1, _HM1, _SM, _M, true, true ) :- !.
 '$expand_clause_body'(B, H, HM, SM, M, B1, BO ) :-
@@ -463,6 +465,7 @@ o:p(B) :- n:g, X is 2+3, call(B).
     '$build_up'(HM, NH, SM0, B1, Cl1, BO, ClO).
 
 
+
 expand_goal(Input, Output) :-
     '$expand_meta_call'(Input, [], Output ).
 
@@ -518,7 +521,7 @@ expand_goal(Input, Output) :-
 	current_predicate(:),
 	current_predicate(?,:),
 	db_files(:),
-	depth_bound_call(0,+),
+			     depth_bound_call(0,+),
 	discontiguous(:),
 	ensure_loaded(:),
 	exo_files(:),

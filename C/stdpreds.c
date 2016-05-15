@@ -777,7 +777,7 @@ static Int cont_current_predicate(USES_REGS1) {
 
     if (IsNonVarTerm(t2)) {
       // module and functor known, should be easy
-      if (IsAtomTerm(t2)) {
+      if (IsAtomTerm(t3)) {
         if ((p = Yap_GetPredPropByAtom(AtomOfTerm(t3), t2)) &&
             valid_prop(p, task)) {
           cut_succeed();
@@ -863,26 +863,13 @@ static Int cont_current_predicate(USES_REGS1) {
       pp = firstModulePred(m->PredForME, task);
       if (!pp) {
         /* try Prolog Module */
-        if (task != TermUser) {
-          ModEntry *m = Yap_GetModuleEntry(TermProlog);
-          pp = firstModulePred(m->PredForME, task);
-          if (!pp) {
-            cut_fail();
-          }
-        }
+        cut_fail();
       }
     }
     npp = firstModulePred(pp, task);
 
     if (!npp) {
-      if (pp->ModuleOfPred != PROLOG_MODULE && task != TermUser) {
-        ModEntry *m = Yap_GetModuleEntry(TermProlog);
-        npp = firstModulePred(m->PredForME, task);
-        if (!npp)
-          will_cut = true;
-      } else {
-        will_cut = true;
-      }
+      will_cut = true;
     }
     // just try next one
     else {
@@ -1056,6 +1043,26 @@ static Int cont_current_atom_op(USES_REGS1) {
 
 static Int init_current_atom_op(
     USES_REGS1) { /* current_op(-Precedence,-Type,-Atom)		 */
+  Term t = Deref(ARG1);
+  AtomEntry *ae;
+  OpEntry *ope;
+
+  if (IsVarTerm(t) || !IsAtomTerm(t)) {
+    Yap_Error(TYPE_ERROR_ATOM, t, "current_op/3");
+    cut_fail();
+  }
+  ae = RepAtom(AtomOfTerm(t));
+  if (EndOfPAEntr((ope = NextOp(RepOpProp(ae->PropsOfAE) PASS_REGS)))) {
+    cut_fail();
+  }
+  EXTRA_CBACK_ARG(5, 1) = (CELL)MkIntegerTerm((Int)ope);
+  B->cp_h = HR;
+  return cont_current_atom_op(PASS_REGS1);
+}
+
+static Int
+    copy_local_ops(USES_REGS1) { /* current_op(-Precedence,-Type,-Atom) */
+  Term tmodin = Deref(ARG1);
   Term t = Deref(ARG1);
   AtomEntry *ae;
   OpEntry *ope;
@@ -1332,7 +1339,8 @@ static Int p_statistics_lu_db_size(USES_REGS1) {
 
 static Int p_executable(USES_REGS1) {
   if (GLOBAL_argv && GLOBAL_argv[0])
-    Yap_locateFile(GLOBAL_argv[0], LOCAL_FileNameBuf, FALSE);
+    Yap_findFile(GLOBAL_argv[0], NULL, NULL, LOCAL_FileNameBuf, true, YAP_EXE,
+                 true, true);
   else
     strncpy(LOCAL_FileNameBuf, Yap_FindExecutable(), YAP_FILENAME_MAX - 1);
 

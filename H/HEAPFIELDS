@@ -1,0 +1,333 @@
+//
+// File defining fields in the Yap_heap_codes global structure
+//
+// these fields used to spread all over the place, because they must be used in 4 ways:
+//  - they must be defined somewhere
+//  - they have an #ifdef to get a shorter name
+//  - they must be initialised somewhere
+//  - they must be restorable and collectable (from the atom gc).
+//
+//
+// The defs include 4+ components:
+//   Type
+//   name in structured
+//   global name
+//   init code and restore code (optional)
+//
+//
+//
+// MkAT (MkAtomTerm) cvts from a predefined atom to a term
+// MkPred constructs a pred_entry
+// MkOp gets an opcode
+// void does nothing
+// =VALUE inits as VALUE
+// Init... sets up call to InitFunc
+// Restore... sets up call to RestoreFunc
+//
+
+START_HEAP
+
+/* memory management */
+UInt		Yap_HoleSize		void    void
+struct malloc_state *Yap_av			void void
+#if USE_DL_MALLOC
+struct Yap_MemoryHoles[MAX_DLMALLOC_HOLES]  void void
+UInt		Yap_NOfMemoryHoles	void void
+#if defined(YAPOR) || defined(THREADS)
+lockvar         DLMallocLock		MkLock
+#endif
+#endif
+#if USE_DL_MALLOC || (USE_SYSTEM_MALLOC && HAVE_MALLINFO)
+#ifndef  HeapUsed
+#define  HeapUsed  Yap_givemallinfo()
+#endif
+Int		NotHeapUsed		void void
+#else
+Int		HeapUsed		void void
+#endif
+Int		HeapMax			void void
+ADDR		HeapTop			void void
+ADDR		HeapLim			void void
+struct FREEB    *FreeBlocks		void void
+#if defined(YAPOR) || defined(THREADS)
+lockvar		FreeBlocksLock		MkLock
+lockvar		HeapUsedLock		MkLock
+lockvar		HeapTopLock		MkLock
+int		HeapTopOwner		=-1 void
+#endif
+UInt		MaxStack		=0 void
+UInt		MaxTrail		=0 void
+
+/* execution info */
+/* OPCODE REVERSE TABLE, needed to recover op tables */
+#if USE_THREADED_CODE
+op_entry	*OP_RTABLE		void	OpRTableAdjust
+#endif
+
+/* popular opcodes */
+OPCODE		EXECUTE_CPRED_OP_CODE	MkOp _execute_cpred
+OPCODE		EXPAND_OP_CODE		MkOp _expand_index
+OPCODE		FAIL_OPCODE		MkOp _op_fail
+OPCODE		INDEX_OPCODE		MkOp _index_pred
+OPCODE		LOCKPRED_OPCODE		MkOp _lock_pred
+OPCODE		ORLAST_OPCODE		MkOp _or_last
+OPCODE		UNDEF_OPCODE		MkOp _undef_p
+OPCODE		RETRY_USERC_OPCODE	MkOp _retry_userc
+OPCODE		EXECUTE_CPRED_OPCODE	MkOp _execute_cpred
+
+/* atom tables */
+UInt		NOfAtoms		void void
+UInt		AtomHashTableSize	void void
+UInt		WideAtomHashTableSize void void
+UInt		NOfWideAtoms		void void
+AtomHashEntry	INVISIBLECHAIN		InitInvisibleAtoms() RestoreInvisibleAtoms()
+AtomHashEntry	*WideHashChain		InitWideAtoms()  RestoreWideAtoms()
+AtomHashEntry	*HashChain		InitAtoms() RestoreAtoms()
+
+/* use atom defs here */
+ATOMS
+
+#ifdef EUROTRA
+Term		TermDollarU		MkAT AtomDollarU
+#endif
+Term		TermAnswer		MkAT AtomAnswer
+
+//modules
+Term		USER_MODULE		MkAT AtomUser
+Term		IDB_MODULE		MkAT AtomIDB
+Term		ATTRIBUTES_MODULE	MkAT AtomAttributes
+Term		CHARSIO_MODULE		MkAT AtomCharsio
+Term		CHTYPE_MODULE		MkAT AtomChType
+Term		TERMS_MODULE		MkAT AtomTerms
+Term		SYSTEM_MODULE		MkAT AtomSystem
+Term		READUTIL_MODULE		MkAT AtomReadutil
+Term		HACKS_MODULE		MkAT AtomYapHacks
+Term		ARG_MODULE		MkAT AtomArg
+Term		GLOBALS_MODULE		MkAT AtomNb
+Term		SWI_MODULE		MkAT AtomSwi
+Term		DBLOAD_MODULE		MkAT AtomDBLoad
+Term		RANGE_MODULE		MkAT AtomRange
+Term		ERROR_MODULE		MkAT AtomError
+
+//
+// Module list
+//
+struct mod_entry *CurrentModules		=NULL	ModEntryPtrAdjust
+// make sure we have the modules set at this point.
+// don't actually want to define a field
+void		void			Yap_InitModules()  void
+
+// hidden predicates
+Prop		HIDDEN_PREDICATES	=NULL RestoreHiddenPredicates()
+
+// make sure we have the streams  set at this point.
+// don't actually want to define a field
+void		void			Yap_InitPlIO()  void
+
+union flagTerm*	GLOBAL_Flags		=0 void
+UInt	  	GLOBAL_flagCount	Yap_InitFlags(true)  RestoreFlags(GLOBAL_flagCount)
+
+/* Anderson's JIT */
+yap_exec_mode	Yap_ExecutionMode	=INTERPRETED void
+
+/*  The Predicate Hash Table: fast access to predicates. */
+UInt		PredsInHashTable	=0 void
+uint64_t	PredHashTableSize	=0 void
+struct pred_entry **PredHash		InitPredHash() RestorePredHash()
+#if defined(YAPOR) || defined(THREADS)
+rwlock_t	PredHashRWLock		void
+#endif
+
+
+/* Well-Known Predicates */
+struct pred_entry *CreepCode		MkPred AtomCreep 1 PROLOG_MODULE
+struct pred_entry *UndefCode		MkPred AtomUndefp 2 PROLOG_MODULE
+struct pred_entry *SpyCode			MkPred AtomSpy 1 PROLOG_MODULE
+struct pred_entry *PredFail		MkPred AtomFail 0 PROLOG_MODULE
+struct pred_entry *PredTrue		MkPred AtomTrue 0 PROLOG_MODULE
+#ifdef COROUTINING
+struct pred_entry  *WakeUpCode		MkPred AtomWakeUpGoal 2 PROLOG_MODULE
+#endif
+struct pred_entry *PredDollarCatch         MkPred FunctorCatch PROLOG_MODULE
+#ifdef YAPOR
+struct pred_entry *PredGetwork		MkPred AtomGetwork 0 PROLOG_MODULE
+#endif /* YAPOR */
+struct pred_entry *PredGoalExpansion	MkPred FunctorGoalExpansion USER_MODULE
+struct pred_entry *PredHandleThrow		MkPred FunctorHandleThrow PROLOG_MODULE
+struct pred_entry *PredIs			MkPred FunctorIs PROLOG_MODULE
+struct pred_entry *PredLogUpdClause	MkPred FunctorDoLogUpdClause PROLOG_MODULE
+struct pred_entry *PredLogUpdClauseErase MkPred FunctorDoLogUpdClauseErase PROLOG_MODULE
+struct pred_entry *PredLogUpdClause0	MkPred FunctorDoLogUpdClause PROLOG_MODULE
+struct pred_entry *PredMetaCall		MkPred FunctorMetaCall PROLOG_MODULE
+struct pred_entry *PredProtectStack		MkPred FunctorProtectStack PROLOG_MODULE
+struct pred_entry *PredRecordedWithKey	MkPred FunctorRecordedWithKey PROLOG_MODULE
+struct pred_entry *PredRestoreRegs		MkPred FunctorRestoreRegs PROLOG_MODULE
+struct pred_entry *PredSafeCallCleanup	MkPred FunctorSafeCallCleanup PROLOG_MODULE
+struct pred_entry *PredStaticClause	MkPred FunctorDoStaticClause PROLOG_MODULE
+struct pred_entry *PredThrow		MkPred FunctorThrow PROLOG_MODULE
+struct pred_entry *PredTraceMetaCall	MkPred FunctorTraceMetaCall PROLOG_MODULE
+struct pred_entry *PredCommentHook		MkPred FunctorCommentHook PROLOG_MODULE
+struct pred_entry *PredProcedure		MkLogPred FunctorProcedure   PROLOG_MODULE
+
+/* low-level tracer */
+#ifdef LOW_LEVEL_TRACER
+int		Yap_do_low_level_trace	=FALSE void
+#if defined(YAPOR) || defined(THREADS)
+lockvar		Yap_low_level_trace_lock MkLock
+#endif
+#endif
+
+/* code management info */
+UInt		Yap_ClauseSpace		=0 void
+UInt		Yap_IndexSpace_Tree	=0 void
+UInt		Yap_IndexSpace_EXT	=0 void
+UInt		Yap_IndexSpace_SW	=0 void
+UInt		Yap_LUClauseSpace	=0 void
+UInt		Yap_LUIndexSpace_Tree	=0 void
+UInt		Yap_LUIndexSpace_CP	=0 void
+UInt		Yap_LUIndexSpace_EXT	=0 void
+UInt		Yap_LUIndexSpace_SW	=0 void
+
+/* static code: may be shared by many predicate or may be used for meta-execution */
+yamop		COMMA_CODE[5]		void void
+yamop		DUMMYCODE[1]		MkInstE _op_fail
+yamop		FAILCODE[1]		MkInstE _op_fail
+yamop		NOCODE[1]			MkInstE _Nstop
+
+yamop	ENV_FOR_TRUSTFAIL[2]	InitEnvInst(ENV_FOR_TRUSTFAIL,&TRUSTFAILCODE,_trust_fail,PredFail) RestoreEnvInst(ENV_FOR_TRUSTFAIL,&TRUSTFAILCODE,_trust_fail,PredFail)
+yamop		*TRUSTFAILCODE		void
+yamop	ENV_FOR_YESCODE[2]		InitEnvInst(ENV_FOR_YESCODE,&YESCODE,_Ystop,PredFail) RestoreEnvInst(ENV_FOR_YESCODE,&YESCODE,_Ystop,PredFail)
+yamop		*YESCODE			void
+
+yamop		RTRYCODE[1]		InitOtaplInst(RTRYCODE,_retry_and_mark,PredFail) RestoreOtaplInst(RTRYCODE,_retry_and_mark,PredFail)
+
+#ifdef BEAM
+yamop	BEAM_RETRY_CODE[1]		MkInstE _beam_retry_code
+#endif /* BEAM */
+#ifdef YAPOR
+yamop		GETWORK[1]			InitOtaplInst(GETWORK,_getwork,PredGetwork) RestoreOtaplInst(GETWORK,_getwork,PredGetwork)
+yamop		GETWORK_SEQ[1]   	InitOtaplInst(GETWORK_SEQ,_getwork_seq,PredGetworkSeq) RestoreOtaplInst(GETWORK_SEQ,_getwork_seq,PredGetworkSeq)
+yamop	    GETWORK_FIRST_TIME[1]	MkInstE _getwork_first_time
+#endif /* YAPOR */
+#ifdef TABLING
+yamop		 LOAD_ANSWER[1]		InitOtaplInst(LOAD_ANSWER,_table_load_answer,PredFail) RestoreOtaplInst(LOAD_ANSWER,_table_load_answer,PredFail)
+yamop		TRY_ANSWER[1] 		InitOtaplInst(TRY_ANSWER,_table_try_answer,PredFail) RestoreOtaplInst(TRY_ANSWER,_table_try_answer,PredFail)
+yamop		ANSWER_RESOLUTION[1]	 InitOtaplInst(ANSWER_RESOLUTION,_table_answer_resolution,PredFail) RestoreOtaplInst(ANSWER_RESOLUTION,_table_answer_resolution,PredFail)
+yamop		COMPLETION[1]	InitOtaplInst(COMPLETION,_table_completion,PredFail) RestoreOtaplInst(COMPLETION,_table_completion,PredFail)
+#ifdef THREADS_CONSUMER_SHARING
+yamop       ANSWER_RESOLUTION_COMPLETION[1] InitOtaplInst(ANSWER_RESOLUTION_COMPLETION,_table_answer_resolution_completion,PredFail) RestoreOtaplInst(ANSWER_RESOLUTION_COMPLETION,_table_answer_resolution_completion,PredFail)
+#endif /* THREADS_CONSUMER_SHARING */
+#endif /* TABLING */
+
+/*  */
+/*    PREG just before we enter $spy. We use that to find out the clause which  */
+/*    was calling the debugged goal.  */
+/*  */
+yamop		*P_before_spy		=NULL PtoOpAdjust
+
+/* support recorded_k  */
+yamop		*RETRY_C_RECORDEDP_CODE	=NULL PtoOpAdjust
+yamop		*RETRY_C_RECORDED_K_CODE =NULL PtoOpAdjust
+R
+/* compiler flags */
+int		PROFILING		=FALSE void
+int		CALL_COUNTING		=FALSE void
+int		optimizer_on		=TRUE void
+int		compile_mode		=0 void
+int		profiling		=FALSE void
+int		call_counting		=FALSE void
+/********* whether we should try to compile array references ******************/
+int		compile_arrays		=FALSE void
+
+/* DBTerms: pre-compiled ground terms */
+#if defined(YAPOR) || defined(THREADS)
+lockvar		DBTermsListLock		MkLock
+#endif
+struct dbterm_list *DBTermsList		=NULL RestoreDBTermsList()
+
+/* JITI support */
+yamop		*ExpandClausesFirst	=NULL void
+yamop		*ExpandClausesLast	=NULL RestoreExpandList()
+UInt		Yap_ExpandClauses	=0 void
+#if defined(YAPOR) || defined(THREADS)
+lockvar		ExpandClausesListLock	MkLock
+lockvar		OpListLock		MkLock
+#endif
+/* instrumentation */
+#ifdef DEBUG
+UInt		Yap_NewCps		=0L void
+UInt		Yap_LiveCps		=0L void
+UInt		Yap_DirtyCps		=0L void
+UInt		Yap_FreedCps		=0L void
+#endif
+UInt		Yap_expand_clauses_sz	=0L void
+
+/* UDI support */
+struct udi_info *UdiControlBlocks	=NULL RestoreUdiControlBlocks()
+
+/* data-base statistics */
+/* system boots in compile mode */
+Int		STATIC_PREDICATES_MARKED   =FALSE void
+
+
+/* Internal Database */
+Prop		*INT_KEYS		=NULL RestoreIntKeys()
+Prop		*INT_LU_KEYS		=NULL RestoreIntLUKeys()
+Prop		*INT_BB_KEYS		=NULL RestoreIntBBKeys()
+
+/* Internal Database Statistics */
+UInt		INT_KEYS_SIZE		=INT_KEYS_DEFAULT_SIZE void
+UInt		INT_KEYS_TIMESTAMP	=0L void
+UInt		INT_BB_KEYS_SIZE	=INT_KEYS_DEFAULT_SIZE void
+
+/* Internal Data-Base Control */
+int		UPDATE_MODE	        =UPDATE_MODE_LOGICAL void
+
+/* nasty IDB stuff */
+struct DB_STRUCT *DBErasedMarker		InitDBErasedMarker() RestoreDBErasedMarker()
+struct logic_upd_clause *LogDBErasedMarker	InitLogDBErasedMarker() RestoreLogDBErasedMarker()
+
+/* Dead clauses and IDB entries */
+struct static_clause *DeadStaticClauses	=NULL RestoreDeadStaticClauses()
+struct static_mega_clause *DeadMegaClauses	=NULL RestoreDeadMegaClauses()
+struct static_index *DeadStaticIndices	=NULL RestoreDeadStaticIndices()
+struct logic_upd_clause *DBErasedList		=NULL RestoreDBErasedList()
+struct logic_upd_index *DBErasedIList		=NULL RestoreDBErasedIList()
+#if defined(YAPOR) || defined(THREADS)
+lockvar  DeadStaticClausesLock	MkLock
+lockvar  DeadMegaClausesLock	MkLock
+lockvar  DeadStaticIndicesLock	MkLock
+#endif
+
+#ifdef COROUTINING
+/* number of attribute modules */
+int		NUM_OF_ATTS		=1	void
+/* initialised by memory allocator */
+UInt		Yap_AttsSize		void void
+#endif
+
+/* Operators */
+struct operator_entry	*OpList			=NULL OpListAdjust
+
+/* foreign code loaded */
+struct ForeignLoadItem 	*ForeignCodeLoaded	=NULL RestoreForeignCode()
+ADDR		ForeignCodeBase		=NULL void
+ADDR		ForeignCodeTop		=NULL void
+ADDR		ForeignCodeMax		=NULL void
+
+/* recorded terms */
+struct record_list *Yap_Records		=NULL		RestoreYapRecords()
+
+Atom	EmptyWakeups[MAX_EMPTY_WAKEUPS]		InitEmptyWakeups() RestoreEmptyWakeups()
+int		MaxEmptyWakeups		=0
+
+/* SWI blobs */
+struct YAP_blob_t		*BlobTypes		=NULL		RestoreBlobTypes()
+struct AtomEntryStruct	*Blobs		=NULL		RestoreBlobs()
+UInt   			NOfBlobs		=0
+UInt   			NOfBlobsMax		=256
+#if defined(YAPOR) || defined(THREADS)
+lockvar         Blobs_Lock		MkLock
+#endif
+
+END_HEAP

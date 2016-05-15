@@ -72,20 +72,12 @@ long _stksize = 32000;
 static void do_top_goal(YAP_Term Goal) { YAP_RunGoalOnce(Goal); }
 
 static int init_standard_system(int argc, char *argv[], YAP_init_args *iap) {
-  int BootMode;
 
-  BootMode = YAP_parse_yap_arguments(argc, argv, iap);
+  YAP_file_type_t BootMode = YAP_parse_yap_arguments(argc, argv, iap);
 
   /* init memory */
-  if (BootMode == YAP_BOOT_FROM_PROLOG ||
-      BootMode == YAP_FULL_BOOT_FROM_PROLOG) {
-    int NewBootMode = YAP_Init(iap);
-    if (NewBootMode != YAP_BOOT_FROM_PROLOG &&
-        BootMode != YAP_FULL_BOOT_FROM_PROLOG)
-      BootMode = NewBootMode;
-  } else {
+  iap->initial_file_type =
     BootMode = YAP_Init(iap);
-  }
   if (iap->ErrorNo) {
     /* boot failed */
     YAP_Error(iap->ErrorNo, 0L, iap->ErrorCause);
@@ -101,16 +93,17 @@ static void exec_top_level(int BootMode, YAP_init_args *iap) {
     /* continue executing from the frozen stacks */
     YAP_ContinueGoal();
   }
+    livegoal = YAP_FullLookupAtom("$live");
   /* the top-level is now ready */
 
   /* read it before case someone, that is, Ashwin, hides
      the atom false away ;-).
   */
-  livegoal = YAP_FullLookupAtom("$live");
   atomfalse = YAP_MkAtomTerm(YAP_FullLookupAtom("$false"));
   while (YAP_GetValue(livegoal) != atomfalse) {
     YAP_Reset(YAP_FULL_RESET);
     do_top_goal(YAP_MkAtomTerm(livegoal));
+    livegoal = YAP_FullLookupAtom("$live");
   }
   YAP_Exit(EXIT_SUCCESS);
 }
@@ -143,6 +136,7 @@ int main(int argc, char **argv)
       YAP_RunGoalOnce(t_goal);
     }
   }
+
   YAP_Reset(YAP_FULL_RESET);
   /* End preprocessor code */
 

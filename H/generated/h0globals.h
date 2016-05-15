@@ -1,6 +1,6 @@
 
   /* This file, hglobals.h, was generated automatically by "yap -L misc/buildlocalglobal"
-     please do not update, update misc/GLOBALS instead */
+     please do not update, update H/GLOBALS instead */
 
 //
 // File defining fields in the Yap_GLOBAL global structure
@@ -141,4 +141,8 @@ EXTERNAL  char*  GLOBAL_CharConversionTable;
 EXTERNAL  char*  GLOBAL_CharConversionTable2;
 /* max priority */
 EXTERNAL  int  GLOBAL_MaxPriority;
+/// alias table access
+EXTERNAL    struct AliasDescS*  GLOBAL_FileAliases;
+EXTERNAL  int  GLOBAL_NOfFileAliases;
+EXTERNAL  int  GLOBAL_SzOfFileAliases;
 

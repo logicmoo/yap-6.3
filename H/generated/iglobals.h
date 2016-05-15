@@ -1,6 +1,6 @@
 
   /* This file, iglobals.h, was generated automatically by "yap -L misc/buildlocalglobal"
-     please do not update, update misc/GLOBALS instead */
+     please do not update, update H/GLOBALS instead */
 
 
 
@@ -141,4 +141,8 @@ static void InitGlobal(void) {
   GLOBAL_CharConversionTable2 = NULL;
 
   GLOBAL_MaxPriority = 1200;
+
+  GLOBAL_FileAliases = Yap_InitStandardAliases();
+
+
 }

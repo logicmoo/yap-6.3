@@ -79,8 +79,7 @@ int Yap_PlFGetchar(void);
 int Yap_GetCharForSIGINT(void);
 Int Yap_StreamToFileNo(Term);
 int Yap_OpenStream(FILE *, char *, Term, int);
-char *Yap_TermToString(Term t, char *s, size_t sz, size_t *length,
-                       encoding_t *encoding, int flags);
+char *Yap_TermToString(Term t, size_t *length, encoding_t encoding, int flags);
 char *Yap_HandleToString(yhandle_t l, size_t sz, size_t *length,
                          encoding_t *encoding, int flags);
 int Yap_GetFreeStreamD(void);
@@ -114,7 +113,7 @@ int Yap_growtrail_in_parser(tr_fr_ptr *, TokEntry **, VarEntry **);
 
 bool Yap_IsAbsolutePath(const char *p);
 Atom Yap_TemporaryFile(const char *prefix, int *fd);
-const char *Yap_AbsoluteFile(const char *spec, bool expand);
+const char *Yap_AbsoluteFile(const char *spec, char *obuf, bool expand);
 
 typedef enum mem_buf_source {
   MEM_BUF_CODE = 1,
@@ -124,18 +123,16 @@ typedef enum mem_buf_source {
 
 char *Yap_MemStreamBuf(int sno);
 
-extern Term Yap_StringToTerm(const char *s, size_t len, encoding_t *encp,
-                             int prio, Term *bindings_p);
+extern X_API Term Yap_StringToTerm(const char *s, size_t len, encoding_t *encp,
+                                   int prio, Term *bindings_p);
 extern Term Yap_StringToNumberTerm(char *s, encoding_t *encp);
 int Yap_FormatFloat(Float f, char **s, size_t sz);
-int Yap_open_buf_read_stream(const char *nbuf, size_t nchars, encoding_t *encp,
-                             memBufSource src);
-int Yap_open_buf_write_stream(char *nbuf, size_t nchars, encoding_t *encp,
-                              memBufSource src);
+int Yap_open_buf_read_stream(const char *buf, size_t nchars, encoding_t *encp, memBufSource src);
+int Yap_open_buf_write_stream(encoding_t enc, memBufSource src);
 Term Yap_ReadFromAtom(Atom a, Term opts);
 FILE *Yap_GetInputStream(Term t, const char *m);
 FILE *Yap_GetOutputStream(Term t, const char *m);
-char *Yap_guessFileName(int f, int sno, char *nameb, size_t max);
+char *Yap_guessFileName(FILE *f, int sno, char *nameb, size_t max);
 void Yap_plwrite(Term t, struct stream_desc *mywrite, int max_depth, int flags,
                  int priority);
 
@@ -163,7 +160,7 @@ INLINE_ONLY inline EXTERN Term MkCharTerm(Int c);
 INLINE_ONLY inline EXTERN Term MkCharTerm(Int c) {
   wchar_t cs[2];
   if (c < 0)
-    return MkAtomTerm(AtomEof);
+    return TermEof;
   cs[0] = c;
   cs[1] = '\0';
   return MkAtomTerm(Yap_LookupMaybeWideAtom(cs));
